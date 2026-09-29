@@ -1,0 +1,18 @@
+#!/bin/sh
+# Run agfr_web with the ADCP distribution's Python (the adcpsuite env), set up
+# the way the agfr / agfrgui launcher scripts set it up (ADS_ROOT, no user
+# site-packages, no inherited PYTHONPATH), so ADFR finds reduce.
+#
+#   bin/agfr-web serve --port 0 --outdir /home/sanner/claude/agfr_web_runs
+#
+# ADCPSUITE overrides the env location.
+ADCPSUITE="${ADCPSUITE:-/home/sanner/micromamba/envs/adcpsuite}"
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$ADCPSUITE/bin:$PATH"
+export ADS_ROOT="$ADCPSUITE"
+export PYTHONNOUSERSITE="disable"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ADS_ROOT/lib"
+# only this package on the path, as the launchers leave nothing else
+export PYTHONPATH="$HERE"
+export AGFR_WEB_OUTDIR="${AGFR_WEB_OUTDIR:-/home/sanner/claude/agfr_web_runs}"
+exec "$ADCPSUITE/bin/python" -m agfr_web "$@"
