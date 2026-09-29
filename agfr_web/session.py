@@ -63,7 +63,7 @@ def safe_name(name):
 
 class Session(object):
 
-    def __init__(self, sid, data, filename, outroot, provenance=None):
+    def __init__(self, sid, data, filename, outroot, provenance=None, source=None):
         self.id = sid
         self.nodes = {}
         self._next = 0
@@ -85,7 +85,8 @@ class Session(object):
         self.record = {
             'created': datetime.datetime.now().isoformat(timespec='seconds'),
             'input': {'name': name, 'bytes': len(data),
-                      'md5': hashlib.md5(data).hexdigest()},
+                      'md5': hashlib.md5(data).hexdigest(),
+                      'source': source or {'upload': filename}},
             'environment': provenance,
             'events': self.events,
             'saves': self.saves,
@@ -109,6 +110,8 @@ class Session(object):
         self.current = None
         first = 'Biomol 1' if 'Biomol 1' in self.trees else list(self.trees)[0]
         self.switch(first)
+        self.record['opened_tab'] = first
+        self.flush()        # the record exists from the moment a file is opened
 
     def _newid(self):
         self._next += 1

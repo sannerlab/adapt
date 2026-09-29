@@ -14,12 +14,15 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
 <script>try { const t = localStorage.getItem("agfrweb.theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
 } catch (e) {}</script>
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/app.css?v=__V_CSS__">
 <header>
   <b>AGFR</b> <span class=dim>PDB panel</span>
   <label class=btn id=openbtn title="Read a .pdb, .ent, .pdb.gz or .ent.gz file">
     Open PDB&hellip;<input type=file id=file accept=".pdb,.ent,.gz" hidden></label>
-  <span id=pdblabel class=dim>drop a PDB file anywhere on the page</span>
+  <form id=fetchform class=fetch title="Download an entry from the RCSB (files.rcsb.org) by its PDB id">
+    <input id=pdbcode placeholder="PDB id" maxlength=4 size=6 spellcheck=false autocomplete=off>
+    <button id=fetchbtn>Fetch from RCSB</button></form>
+  <span id=pdblabel class=dim>or drop a PDB file anywhere on the page</span>
   <span class=grow></span>
   <span id=envnote class=dim></span>
   <button id=theme class=plain title="light / dark">&#9681;</button>
@@ -54,10 +57,23 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
 <div id=busy hidden><span>working&hellip;</span></div>
 <footer class=dim>agfr_web __VERSION__ &middot; computation by ADFR (AGFRgui's own code,
 ADCP distribution) &middot; viewer 3Dmol.js (Rego &amp; Koes, Bioinformatics 2015)</footer>
-<script src="/static/3Dmol-min.js"></script>
-<script src="/static/app.js"></script>
+<script src="/static/3Dmol-min.js?v=__V_3DMOL__"></script>
+<script src="/static/app.js?v=__V_JS__"></script>
 """
 
 
+def _v(name):
+    """Short md5 of a static file: its URL changes whenever its content does,
+    so the hour-long cache of /static/ never serves an outdated script."""
+    import hashlib
+    import os
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', name)
+    with open(path, 'rb') as fh:
+        return hashlib.md5(fh.read()).hexdigest()[:10]
+
+
 def render():
-    return PAGE.replace('__VERSION__', __version__)
+    return (PAGE.replace('__VERSION__', __version__)
+                .replace('__V_CSS__', _v('app.css'))
+                .replace('__V_JS__', _v('app.js'))
+                .replace('__V_3DMOL__', _v('3Dmol-min.js')))

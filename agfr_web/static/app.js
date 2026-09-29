@@ -19,6 +19,7 @@ let ATOMS = '';          // per-atom state letters, atom-index order
 let VIEW = null, MODEL = null, ROT = null;
 let STRUCT = {};         // tab -> {pdb, n}
 let SEL = null;          // selected node id
+let HL = null;           // {indices, scheme}: what is highlighted, kept across repaints
 
 /* ---------------------------------------------------------------- api */
 let busyTimer = null;
@@ -59,14 +60,32 @@ async function openFile(file){
   if(!file) return;
   status('reading ' + esc(file.name) + '&hellip;');
   const d = await api('/api/upload?name=' + encodeURIComponent(file.name), null, file);
-  if(d.error) return;
+  if(!d.error) loaded(d);
+}
+
+/* Fetch from RCSB: the server downloads <ID>.pdb (cached) and opens it */
+$('fetchform').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = $('pdbcode').value.trim().toUpperCase();
+  if(!/^[0-9][A-Z0-9]{3}$/.test(code)){
+    status('<span class=bad>a PDB id is four characters, the first a digit (e.g. 6GGD)</span>');
+    return;
+  }
+  status('fetching ' + esc(code) + ' from the RCSB&hellip;');
+  const d = await api('/api/fetch?code=' + encodeURIComponent(code), {});
+  if(!d.error) loaded(d);
+});
+
+function loaded(d){
   S = d; STRUCT = {}; OPEN = {}; SEL = null;
   $('pdblabel').textContent = d.label;
   $('folder').textContent = 'session folder: ' + d.folder;
   $('saves').innerHTML = '';
   showTab(d);
   status('loaded ' + esc(d.pdbid) + ': ' + d.tabs.length + ' biomolecule tab'
-         + (d.tabs.length === 1 ? '' : 's'));
+         + (d.tabs.length === 1 ? '' : 's')
+         + (d.fetched ? ' &middot; <span class=dim>' + esc(d.fetched.url)
+                        + (d.fetched.from_cache ? ' (cached)' : '') + '</span>' : ''));
 }
 $('file').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
 
@@ -339,7 +358,7 @@ function applyView(d){
 async function show(what, scheme){
   const d = await api('/api/select', {s: S.session, what: what});
   if(d.error) return;
-  restyle();
+  HL = null; restyle();
   highlight(d.indices, scheme, true);
   status(d.indices.length + ' atoms: ' + what);
 }
@@ -385,6 +404,7 @@ async function loadStructure(tab){
   const v = viewer();
   v.clear(); ROT = null;
   const d = STRUCT[tab];
+  HL = null;                     // its indices belonged to the previous molecule
   MODEL = v.addModel(d.pdb, 'pdb', {altLoc: '*', keepH: true});
   const n = MODEL.selectedAtoms({}).length;
   if(n !== d.n) status('<span class=bad>viewer read ' + n + ' atoms of ' + d.n
@@ -413,16 +433,25 @@ function restyle(){
   // atoms without bonds (ions, waters) are invisible as lines
   v.addStyle({model: MODEL, predicate: a => !a.bonds.length},
              {sphere: {radius: 0.22, colorscheme: 'default'}});
+  // a repaint follows every flag change (a checkbox, an altloc, a charge, a
+  // mutation); the atoms the user is looking at stay highlighted, as in AGFRgui
+  if(HL) paintHighlight(HL);
   v.render();
+}
+
+function paintHighlight(h){
+  const set = new Set(h.indices);
+  const sel = {model: MODEL, predicate: a => set.has(a.index)};
+  if(h.indices.length === 1) viewer().addStyle(sel, {sphere: {scale: 0.35, colorscheme: h.scheme}});
+  else viewer().addStyle(sel, {stick: {colorscheme: h.scheme, radius: 0.22}});
+  return sel;
 }
 
 function highlight(indices, scheme, zoom){
   if(!MODEL) return;
   const v = viewer();
-  const set = new Set(indices);
-  const sel = {model: MODEL, predicate: a => set.has(a.index)};
-  if(indices.length === 1) v.addStyle(sel, {sphere: {scale: 0.35, colorscheme: scheme}});
-  else v.addStyle(sel, {stick: {colorscheme: scheme, radius: 0.22}});
+  HL = {indices: indices, scheme: scheme};
+  const sel = paintHighlight(HL);
   if(zoom && indices.length){
     v.zoomTo(sel);
     if(indices.length < 300) v.zoom(0.35);   // a residue: keep its surroundings in view
@@ -433,7 +462,7 @@ function highlight(indices, scheme, zoom){
 async function focus(id){
   const d = await api('/api/focus?s=' + S.session + '&node=' + id);
   if(d.error) return;
-  restyle();
+  HL = null; restyle();
   highlight(d.indices, 'greenCarbon', true);
 }
 

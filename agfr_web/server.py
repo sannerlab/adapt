@@ -17,7 +17,7 @@ import zipfile
 import io
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import __version__, env, page
+from . import __version__, env, fetch, page
 from .flags import Refused
 
 MAX_BODY = 1 << 20
@@ -44,16 +44,34 @@ class App(object):
         return {'version': __version__, 'missing': env.check(),
                 'outdir': self.outdir, 'environment': self.provenance()}
 
-    def upload(self, name, data):
+    def upload(self, name, data, source=None):
         from .session import Session
         if not data:
             raise Refused('the file is empty')
         sid = secrets.token_hex(8)
-        s = Session(sid, data, name, self.outdir, self.provenance())
+        s = Session(sid, data, name, self.outdir, self.provenance(), source)
         with self._lock:
             self.sessions[sid] = s
         d = s.info()
         d.update(s.view(full=True))
+        return d
+
+    def fetch(self, code):
+        """Download an entry from the RCSB (cached) and open it like an upload."""
+        import datetime
+        try:
+            path, url, cached = fetch.fetch(code, os.path.join(self.outdir, '_rcsb'))
+        except fetch.FetchError as e:
+            raise Refused(str(e))
+        with open(path, 'rb') as fh:
+            data = fh.read()
+        # lower case, as the RCSB names its files: PDBProfiler takes the PDB
+        # id from the file name and looks the entry's ligands up by it
+        name = os.path.basename(path).lower()
+        d = self.upload(name, data, source={
+            'rcsb': url, 'cache': path, 'from_cache': cached,
+            'at': datetime.datetime.now().isoformat(timespec='seconds')})
+        d['fetched'] = {'url': url, 'from_cache': cached}
         return d
 
     def session(self, sid):
@@ -193,6 +211,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == '/api/upload':
             return self._run(lambda: app.upload(q.get('name', [''])[0],
                                                 self._raw(MAX_UPLOAD)))
+        if u.path == '/api/fetch':
+            return self._run(lambda: app.fetch(q.get('code', [''])[0]))
         try:
             body = self._json()
         except Refused as e:
