@@ -16,8 +16,14 @@ The web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking): a s
 
 ```bash
 bin/agfr-web check                  # "ready", or what is missing
-bin/agfr-web serve --port 0         # prints http://127.0.0.1:<port>/?t=<token>
+bin/agfr-web serve                  # port 8766; prints http://127.0.0.1:8766/?t=<token>
 ```
+
+Keep the default port (or any fixed `--port`). The browser keeps what it remembers for the page
+per host and port: in Chrome and Edge, **Open PDB…** reopens the folder the previous file came
+from (File System Access API picker with an `id`), and the light/dark choice is stored the same
+way. `--port 0` picks a new port on each run, and that memory starts empty every time. Firefox and
+Safari lack that API and use a plain file input, whose starting folder the browser decides.
 
 `bin/agfr-web` sets up the adcpsuite env the way the `agfr` / `agfrgui` launchers do (`ADS_ROOT`, no user site-packages); ADFR finds `reduce` through `ADS_ROOT`. Set `ADCPSUITE=/path/to/env` to use another installation.
 

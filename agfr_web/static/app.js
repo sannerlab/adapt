@@ -68,7 +68,31 @@ async function openFile(file){
   status('loaded ' + esc(d.pdbid) + ': ' + d.tabs.length + ' biomolecule tab'
          + (d.tabs.length === 1 ? '' : 's'));
 }
-$('file').addEventListener('change', e => openFile(e.target.files[0]));
+$('file').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
+
+/* A page cannot choose the folder a plain <input type=file> opens in. Where
+   the browser has the File System Access API (Chrome, Edge), the picker is
+   opened with an `id`, and the browser then reopens it in the folder the last
+   file with that id came from, across reloads and restarts. The memory is kept
+   per origin (host AND port), so it holds as long as the server keeps its
+   port. Elsewhere the <input> inside the button is used as before. */
+if('showOpenFilePicker' in window){
+  $('openbtn').addEventListener('click', async e => {
+    e.preventDefault();                  // do not also open the <input>
+    let handle;
+    try {
+      [handle] = await window.showOpenFilePicker({
+        id: 'agfr-pdb',
+        types: [{description: 'PDB files (.pdb .ent .pdb.gz .ent.gz)',
+                 accept: {'chemical/x-pdb': ['.pdb', '.ent', '.gz']}}]});
+    } catch(err){
+      if(err.name !== 'AbortError')      // AbortError = the dialog was cancelled
+        status('<span class=bad>could not open the file picker: ' + esc(err.message) + '</span>');
+      return;
+    }
+    openFile(await handle.getFile());
+  });
+}
 document.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drag'); });
 document.addEventListener('dragleave', e => { if(!e.relatedTarget) document.body.classList.remove('drag'); });
 document.addEventListener('drop', e => {
