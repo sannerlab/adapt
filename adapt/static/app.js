@@ -28,12 +28,14 @@ function busy(on){
   if(on) busyTimer = setTimeout(() => { $('busy').hidden = false; }, 250);
   else $('busy').hidden = true;
 }
-async function api(path, body, raw){
+async function api(path, body, raw, quiet){
   const url = path + (path.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(T);
   const opt = raw ? {method:'POST', body: raw}
             : body ? {method:'POST', headers:{'Content-Type':'application/json'},
                       body: JSON.stringify(body)} : {};
-  busy(true);
+  // quiet: no "working" overlay (it would cover the page and swallow the
+  // next wheel event while rotamers are being browsed)
+  if(!quiet) busy(true);
   try {
     const r = await fetch(url, opt);
     let d;
@@ -45,7 +47,7 @@ async function api(path, body, raw){
   } catch(e){
     status('<span class=bad>the server did not answer: ' + esc(e) + '</span>');
     return {error: String(e)};
-  } finally { busy(false); }
+  } finally { if(!quiet) busy(false); }
 }
 function status(html){ $('status').innerHTML = html || '&nbsp;'; }
 function log(lines){
@@ -249,13 +251,29 @@ function params(cell, n){
   }
   if(n.rotamer){
     const sel = document.createElement('select');
-    sel.title = 'Preview only: when the receptor is written AGFR builds the best-scoring '
+    sel.title = 'Scroll the mouse wheel over this box to step through the rotamers. '
+      + 'Preview only: when the receptor is written AGFR builds the best-scoring '
       + 'rotamer (auto), exactly as AGFRgui does.';
     let h = '<option value=-1>auto ' + (n.rotamer.auto + 1) + '</option>';
     for(let i = 0; i < n.rotamer.n; i++) h += '<option value=' + i + '>' + (i + 1) + '</option>';
     sel.innerHTML = h;
     sel.value = n.rotamer.current;
     sel.onchange = () => { n.rotamer.current = parseInt(sel.value); rotamer(n.id); };
+    // The mouse wheel over the box steps through the rotamers, one per wheel
+    // notch (a notch is ~100 px of deltaY); a trackpad's small deltas are summed
+    // into notch-sized steps. The tree does not scroll while the pointer is here.
+    let acc = 0;
+    sel.addEventListener('wheel', e => {
+      e.preventDefault();
+      acc += e.deltaMode === 0 ? e.deltaY : e.deltaY * 40;
+      if(Math.abs(acc) < 50) return;
+      const k = sel.selectedIndex + Math.sign(acc);
+      acc = 0;
+      if(k < 0 || k >= sel.options.length) return;
+      sel.selectedIndex = k;
+      sel.onchange();
+      if(SEL !== n.id) select(n.id);     // show the residue the rotamers belong to
+    }, {passive: false});
     cell.appendChild(sel);
   }
 }
@@ -466,10 +484,31 @@ const HL_COLOR = {greenCarbon: '#2fd13a', orangeCarbon: '#ff9f1a'};
 function paintHighlight(h){
   const set = new Set(h.indices);
   const sel = {model: MODEL, predicate: a => set.has(a.index)};
-  if(h.indices.length === 1)      // set, not add: the ion's own sphere style would keep its element colour
-    viewer().setStyle(sel, {sphere: {radius: 0.75, color: HL_COLOR[h.scheme] || '#2fd13a'}});
-  else viewer().addStyle(sel, {stick: {colorscheme: h.scheme, radius: 0.22}});
+  const color = HL_COLOR[h.scheme] || '#2fd13a';
+  const lone = h.indices.length === 1;
+  // atoms without bonds (ions, waters) show nothing as sticks: they get a
+  // sphere of the highlight colour instead; "set", not "add", because their own
+  // sphere style would keep the element colour
+  viewer().setStyle({model: MODEL, predicate: a => set.has(a.index) && !a.bonds.length},
+                    {sphere: {radius: lone ? 0.75 : 0.45, color: color}});
+  // residues scattered over a zoomed-out molecule need thicker sticks to be seen
+  if(h.wide === undefined) h.wide = extent(h.indices) >= 8;
+  viewer().addStyle({model: MODEL, predicate: a => set.has(a.index) && a.bonds.length > 0},
+                    {stick: {colorscheme: h.scheme, radius: h.wide ? 0.4 : 0.22}});
   return sel;
+}
+
+/* How far the selected atoms spread from their centre, in Angstrom. */
+function extent(indices){
+  const set = new Set(indices);
+  const at = MODEL.selectedAtoms({predicate: a => set.has(a.index)});
+  if(!at.length) return 0;
+  let cx = 0, cy = 0, cz = 0;
+  for(const a of at){ cx += a.x; cy += a.y; cz += a.z; }
+  cx /= at.length; cy /= at.length; cz /= at.length;
+  let r = 0;
+  for(const a of at) r = Math.max(r, Math.hypot(a.x - cx, a.y - cy, a.z - cz));
+  return r;
 }
 
 function highlight(indices, scheme, zoom){
@@ -479,21 +518,39 @@ function highlight(indices, scheme, zoom){
   const sel = paintHighlight(HL);
   if(zoom && indices.length){
     v.zoomTo(sel);
-    if(indices.length < 300) v.zoom(0.35);   // a residue: keep its surroundings in view
+    // a residue or an ion fills the view once zoomed to: step back so its
+    // surroundings stay visible. A selection spread over the molecule (a whole
+    // category, all the waters) is framed as it is.
+    if(!HL.wide) v.zoom(0.35);
   }
   v.render();
 }
 
 async function focus(id){
-  const d = await api('/api/focus?s=' + S.session + '&node=' + id);
+  const d = await api('/api/focus?s=' + S.session + '&node=' + id, null, null, true);   // view only: quiet
   if(d.error) return;
   HL = null; restyle();
   highlight(d.indices, 'greenCarbon', true);
 }
 
+/* One preview request at a time per residue: while one is out, further
+   changes only mark it stale, and the newest choice is fetched when it returns.
+   A fast wheel thus costs at most two requests, and ends on the right rotamer. */
+const ROTQ = {};
 async function rotamer(id){
+  const q = ROTQ[id] || (ROTQ[id] = {busy: false, again: false});
+  if(q.busy){ q.again = true; return; }
+  q.busy = true;
+  try {
+    do { q.again = false; await rotamerOnce(id); } while(q.again);
+  } finally { q.busy = false; }
+}
+
+async function rotamerOnce(id){
   const n = NODE[id];
-  const d = await api('/api/rotamer?s=' + S.session + '&node=' + id + '&choice=' + n.rotamer.current);
+  if(!n) return;
+  const d = await api('/api/rotamer?s=' + S.session + '&node=' + id + '&choice=' + n.rotamer.current,
+                      null, null, true);
   if(d.error) return;
   const v = viewer();
   if(ROT) v.removeModel(ROT);

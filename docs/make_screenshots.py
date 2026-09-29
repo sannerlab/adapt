@@ -168,6 +168,26 @@ def overview(p):
     p.unbadge()
 
 
+def link(p):
+    """The tree drives the 3D view: a residue, a whole category, the waters."""
+    p.fetch('1FV1', 'Biomol 1')
+    p.js("DOC.collapseAll()")
+    res = p.node('A', 'protein', "TRP'")
+    p.js('DOC.show(%s); DOC.select(%s)' % (res, res))
+    p.idle(1.0)
+    p.shot('link_residue')
+    p.js("DOC.collapseAll()")
+    cat = p.node('B', 'sidechains to complete')
+    p.js('DOC.select(%s)' % cat)
+    p.idle(1.0)
+    p.shot('link_category')
+    p.js("DOC.collapseAll()")
+    wat = p.node('A', 'water')
+    p.js('DOC.select(%s)' % wat)
+    p.idle(1.0)
+    p.shot('link_water')
+
+
 def biomolecule(p):
     p.fetch('1HHP', 'ASU')
     p.shot('1hhp_asu')
@@ -323,7 +343,7 @@ def saving(p):
     return folder
 
 
-SCENES = [overview, biomolecule, assemblies, sidechains, altlocs, ligand, charges,
+SCENES = [overview, link, biomolecule, assemblies, sidechains, altlocs, ligand, charges,
           unknown, gaps, mutations, saving]
 
 

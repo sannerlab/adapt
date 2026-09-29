@@ -19,6 +19,7 @@ SRC = os.path.join(HERE, 'src')
 PAGES = [
     ('index', 'Overview', 'Start here'),
     ('start', 'Getting started', 'Start here'),
+    ('tree-3d', 'The tree and the 3D view', 'Start here'),
     ('case-biomolecule', 'Biological assembly, not the ASU', 'Cases'),
     ('case-assemblies', 'Choosing between assemblies', 'Cases'),
     ('case-sidechains', 'Missing side chains', 'Cases'),
