@@ -1,6 +1,8 @@
-# agfr_web — AGFRgui's PDB panel in a web browser
+# ADapt — AutoDock preparation & perception tool
 
-Open a PDB file and you get what AGFRgui's PDB analyser shows:
+**ADapt** prepares the receptor and ligand PDBQT files for AutoDock from a PDB entry, in a web
+browser. It does what AGFRgui's PDB panel does. Open a PDB file (or fetch one from the RCSB) and
+you get what that panel shows:
 
 - one tab per biomolecule (ASU, Biomol N);
 - per chain, the residues grouped by category: protein, nucleic, side chains to complete, missing atoms, cofactors, modified, manual charges, ligands, additives, water, other, plus the altloc and unknown-atom-type subtrees;
@@ -8,9 +10,13 @@ Open a PDB file and you get what AGFRgui's PDB analyser shows:
 - a right-click menu to complete a side chain or leave it as is, and to mutate a residue;
 - two save buttons that write **receptor.pdbqt** and **ligand.pdbqt**.
 
-The computation is **ADFR's own code**: the same `runAGFR` / `PDBProfiler` / `ADLigand` calls AGFRgui makes, run in the ADCP distribution's Python (the `adcpsuite` env, Python 3.7, `adfr-0.0.22`). The PDBQT files are therefore byte-identical to AGFRgui's for the same choices; `tests/test_parity.py` checks this against ADFR's headless `agfr --toPdbqt` path. Only the Qt tree and its flag logic were ported (`tree.py`, `flags.py`).
+ADapt's computation is **ADFR's own code**: the same `runAGFR` / `PDBProfiler` / `ADLigand` calls AGFRgui makes, run in the ADCP distribution's Python (the `adcpsuite` env, Python 3.7, `adfr-0.0.22`). `tests/test_parity.py` checks that the PDBQT files are byte-identical to what ADFR's headless `--toPdbqt` path writes for the same choices; the Qt GUI itself is not part of the tests. Only the Qt tree and its flag logic were ported (`tree.py`, `flags.py`).
 
-The web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking): a standard-library `ThreadingHTTPServer` bound to localhost with a random token in the URL, one HTML page with plain JavaScript and no build step, and a bundled 3Dmol.js viewer (BSD-3; its licence is in `agfr_web/static/`).
+ADapt's web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking): a standard-library `ThreadingHTTPServer` bound to localhost with a random token in the URL, one HTML page with plain JavaScript and no build step, and a bundled 3Dmol.js viewer (BSD-3; its licence is in `agfr_web/static/`).
+
+**Name.** The display name is **ADapt** (capital A, capital D: it encodes "AutoDock" and reads as
+the word "adapt"); it is what the page, `--help`, the server's messages and the session records
+show. The Python package (`agfr_web`) and the command (`bin/agfr-web`) keep their technical names.
 
 ## Run
 
@@ -21,7 +27,7 @@ bin/agfr-web serve                  # port 8766; prints http://127.0.0.1:8766/?t
 
 The printed URL carries a random token; the page answers 403 without it. The server stays up
 until stopped (Ctrl-C, or `kill` its PID when it was started detached, e.g.
-`setsid nohup bin/agfr-web serve > agfr_web.log 2>&1 &`).
+`setsid nohup bin/agfr-web serve > server.log 2>&1 &`).
 
 `bin/agfr-web` sets up the ADCP distribution's `adcpsuite` env the way the `agfr` / `agfrgui`
 launchers do (`ADS_ROOT`, no user site-packages); ADFR finds `reduce` through `ADS_ROOT`. Set
@@ -45,7 +51,7 @@ decides.
 **Fetch from RCSB**: type a PDB id in the box at the top and press Enter. The server downloads
 `https://files.rcsb.org/download/<ID>.pdb`, keeps it under `<outdir>/_rcsb/` (so the same entry
 opens from the cache the next time), and opens it. Entries the RCSB distributes only as mmCIF (the
-largest assemblies) are reported, not opened, because the PDB panel reads PDB files. The session
+largest assemblies) are reported, not opened, because ADapt reads PDB files. The session
 record keeps the URL the file came from.
 
 **Open PDB…** reads a local `.pdb`, `.ent`, `.pdb.gz` or `.ent.gz` file; dropping one on the page
@@ -92,9 +98,9 @@ Each loaded file gets a session folder under `--outdir` (default `/home/sanner/c
 
 - the input PDB, under its own name, because ADFR reads the PDB id from it to look up the known ligands;
 - `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten;
-- `session.json`, which records the input md5, the ADFR package version and the md5 of the ADFR sources that ran, the agfr_web commit, every edit in order, and every file written with its md5.
+- `session.json`, which records the input md5, the ADFR package version and the md5 of the ADFR sources that ran, the ADapt version and commit, every edit in order, and every file written with its md5.
 
-## Differences from AGFRgui (all fixes of GUI defects)
+## Where ADapt differs from AGFRgui (all fixes of GUI defects)
 
 - **An edited manual charge is used.** AGFRgui's `_getCharges` reads a checkbox column the charge items never have, so the spin box value was silently dropped and the default charge written. With unedited charges both write the same bytes.
 - **Tab switches apply correctly.**
@@ -107,7 +113,7 @@ Each loaded file gets a session folder under `--outdir` (default `/home/sanner/c
 ## Faithful, but worth knowing (ADFR behaviour, not changed)
 
 - The rotamer dropdown is a **preview**. When the receptor is written, `mutateResidues` builds the best-scoring rotamer, as in AGFRgui.
-- `recFromPDB._gaps` never reports a gap in adfr-0.0.22: it tests `format_alignment(...).split('\n').count('-')`, which counts lines that are exactly `-`. So "missing residues" never appears here or in AGFRgui. The node is ported and tested with a synthetic record.
+- `recFromPDB._gaps` never reports a gap in adfr-0.0.22: it tests `format_alignment(...).split('\n').count('-')`, which counts lines that are exactly `-`. So "missing residues" never appears in ADapt or in AGFRgui. The node is ported and tested with a synthetic record.
 - The order of the letters in `PDBProfiler._altlocsRes` varies between runs, because it comes from set iteration. The chosen letter, and hence the output, does not.
 - The `agfr` / `agfrgui` launcher scripts pass arguments as an unquoted `$@`, so any option value containing spaces (`--heteroToKeep "chid B resnum 402"`) is split and rejected. Call `python -m ADFR.bin.runAGFR` directly for those.
 - The `custom charge` REMARK is written from the ASU molecule's flags, so it is absent when the ion was added to the receptor in another biomolecule's tab. The atom still carries the charge.

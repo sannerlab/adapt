@@ -6,17 +6,17 @@ light/dark switch) follow ADCP_docking/adcp_dock/page.py by Aadhil Haq
 one tab per biomolecule, a residue tree with receptor and ligand columns and a
 params column, the rec./lig./other show buttons and the two save buttons.
 """
-from . import __version__
+from . import APP, APP_LONG, __version__
 
 PAGE = r"""<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AGFR &middot; PDB panel</title>
+<title>__APP__ &middot; __APP_LONG__</title>
 <script>try { const t = localStorage.getItem("agfrweb.theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
 } catch (e) {}</script>
 <link rel="stylesheet" href="/static/app.css?v=__V_CSS__">
 <header>
-  <b>AGFR</b> <span class=dim>PDB panel</span>
+  <b>__APP__</b> <span class=dim>__APP_LONG__</span>
   <label class=btn id=openbtn title="Read a .pdb, .ent, .pdb.gz or .ent.gz file">
     Open PDB&hellip;<input type=file id=file accept=".pdb,.ent,.gz" hidden></label>
   <form id=fetchform class=fetch title="Download an entry from the RCSB (files.rcsb.org) by its PDB id">
@@ -55,7 +55,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
 </main>
 <div id=menu class=menu hidden></div>
 <div id=busy hidden><span>working&hellip;</span></div>
-<footer class=dim>agfr_web __VERSION__ &middot; computation by ADFR (AGFRgui's own code,
+<footer class=dim>__APP__ __VERSION__ &middot; computation by ADFR (AGFRgui's own code,
 ADCP distribution) &middot; viewer 3Dmol.js (Rego &amp; Koes, Bioinformatics 2015)</footer>
 <script src="/static/3Dmol-min.js?v=__V_3DMOL__"></script>
 <script src="/static/app.js?v=__V_JS__"></script>
@@ -73,7 +73,10 @@ def _v(name):
 
 
 def render():
+    import html
     return (PAGE.replace('__VERSION__', __version__)
+                .replace('__APP_LONG__', html.escape(APP_LONG))
+                .replace('__APP__', html.escape(APP))
                 .replace('__V_CSS__', _v('app.css'))
                 .replace('__V_JS__', _v('app.js'))
                 .replace('__V_3DMOL__', _v('3Dmol-min.js')))

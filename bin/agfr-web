@@ -1,9 +1,9 @@
 #!/bin/sh
-# Run agfr_web with the ADCP distribution's Python (the adcpsuite env), set up
+# Run ADapt (AutoDock preparation & perception tool) with the ADCP distribution's Python (the adcpsuite env), set up
 # the way the agfr / agfrgui launcher scripts set it up (ADS_ROOT, no user
 # site-packages, no inherited PYTHONPATH), so ADFR finds reduce.
 #
-#   bin/agfr-web serve --port 0 --outdir /home/sanner/claude/agfr_web_runs
+#   bin/agfr-web serve                 # port 8766, outputs in $AGFR_WEB_OUTDIR
 #
 # ADCPSUITE overrides the env location.
 ADCPSUITE="${ADCPSUITE:-/home/sanner/micromamba/envs/adcpsuite}"

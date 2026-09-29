@@ -1,4 +1,4 @@
-/* agfr_web page behaviour. Plain JavaScript, no framework and no build step
+/* ADapt page behaviour. Plain JavaScript, no framework and no build step
    (the ADCP_docking convention). Every change is made by the server, which
    runs AGFRgui's own code; the page only draws what the server returns, so a
    checkbox never shows a state the ADFR atoms do not have. */

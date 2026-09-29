@@ -1,4 +1,4 @@
-"""The web front end: a local page that drives AGFRgui's PDB panel.
+"""ADapt's web front end: a local page that does what AGFRgui's PDB panel does.
 
 The server pattern (standard library only, bound to localhost, a random token
 in the URL, JSON under /api/*, bundled static files) follows
@@ -17,7 +17,7 @@ import zipfile
 import io
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import __version__, env, fetch, page
+from . import APP, APP_LONG, __version__, env, fetch, page
 from .flags import Refused
 
 MAX_BODY = 1 << 20
@@ -82,7 +82,7 @@ class App(object):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'agfr_web/' + __version__
+    server_version = '%s/%s' % (APP, __version__)
 
     def log_message(self, *a):
         pass
@@ -256,12 +256,12 @@ def serve(host='127.0.0.1', port=8766, outdir='~/agfr_web_runs'):
     httpd = build(host, port, outdir)
     bound = httpd.server_address[1]
     url = 'http://%s:%d/?t=%s' % (host, bound, httpd.app.token)
-    print('AGFR PDB panel (agfr_web %s) is at\n\n    %s\n' % (__version__, url), flush=True)
+    print('%s %s (%s) is at\n\n    %s\n' % (APP, __version__, APP_LONG, url), flush=True)
     print('outputs are kept in %s' % httpd.app.outdir, flush=True)
     miss = env.check()
     if miss:
-        print('\nNOT FOUND: %s' % '; '.join(miss), flush=True)
+        print('\n%s cannot run yet. NOT FOUND: %s' % (APP, '; '.join(miss)), flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print('\nstopped')
+        print('\n%s stopped' % APP)

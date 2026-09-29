@@ -1,4 +1,4 @@
-/* agfr_web page style. Palette variables follow ADCP_docking's page. */
+/* ADapt page style. Palette variables follow ADCP_docking's page. */
 :root{
   color-scheme:light;
   --bg:#f7f8fb; --card:#fff; --panel:#eceef6; --line:#dfe3ee; --fg:#1b2333;

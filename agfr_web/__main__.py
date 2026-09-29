@@ -1,4 +1,4 @@
-"""python -m agfr_web serve [--host H] [--port P] [--outdir DIR] | check | examples | test [-k NAME]"""
+"""Command line: python -m agfr_web serve | check | examples | test (bin/agfr-web wraps it)."""
 import argparse
 import os
 import sys
@@ -7,9 +7,27 @@ DEFAULT_OUTDIR = os.environ.get('AGFR_WEB_OUTDIR', '~/agfr_web_runs')
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog='agfr-web', description=__doc__)
+    from . import APP, APP_LONG, __version__
+    p = argparse.ArgumentParser(
+        prog='agfr-web',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='%s %s: %s\n\n'
+                    'Prepares receptor and ligand PDBQT files from a PDB entry in a web\n'
+                    'browser, the way AGFRgui\'s PDB panel does, with ADFR\'s own code.'
+                    % (APP, __version__, APP_LONG),
+        epilog='examples:\n'
+               '  %(prog)s serve                   start %(app)s on port 8766 and print its URL\n'
+               '  %(prog)s serve --port 9000       another fixed port (the browser remembers\n'
+               '                                   folders and theme per port)\n'
+               '  %(prog)s check                   "ready", or what %(app)s is missing\n'
+               '  %(prog)s examples                where ADFR keeps its example PDB files\n'
+               '  %(prog)s test -k parity          run part of the test suite\n\n'
+               '%(app)s runs ADFR from the ADCP distribution (the adcpsuite env); the\n'
+               'wrapper bin/agfr-web sets that env up. README.md has a first session.'
+               % {'prog': 'agfr-web', 'app': APP})
+    p.add_argument('--version', action='version', version='%s %s' % (APP, __version__))
     sub = p.add_subparsers(dest='cmd')
-    s = sub.add_parser('serve', help='start the page (prints its URL)')
+    s = sub.add_parser('serve', help='start %s in a browser page (prints its URL)' % APP)
     s.add_argument('--host', default='127.0.0.1',
                    help='address to bind (default 127.0.0.1: this machine only)')
     s.add_argument('--port', type=int, default=8766, help='0 picks a free port')
@@ -17,9 +35,9 @@ def main(argv=None):
                    help='where every session keeps its input, outputs and '
                         'session.json (default %(default)s); keep it on NFS, '
                         'never /tmp')
-    sub.add_parser('check', help='report what is missing')
+    sub.add_parser('check', help='report what %s needs that is missing' % APP)
     sub.add_parser('examples', help="list the example PDB files that ship with ADFR")
-    t = sub.add_parser('test', help='run the test suite (tests/run_tests.py)')
+    t = sub.add_parser('test', help='run the %s test suite (tests/run_tests.py)' % APP)
     t.add_argument('-k', default='', help='only tests whose name contains this')
     a = p.parse_args(argv)
     if a.cmd == 'test':
@@ -39,7 +57,7 @@ def main(argv=None):
         return 0
     if a.cmd == 'check':
         miss = env.check()
-        print('ready' if not miss else 'missing: ' + '; '.join(miss))
+        print('%s is ready' % APP if not miss else '%s cannot run: missing %s' % (APP, '; '.join(miss)))
         return 1 if miss else 0
     if a.cmd != 'serve':
         p.print_help()

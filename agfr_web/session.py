@@ -56,7 +56,7 @@ def safe_name(name):
     base = os.path.basename(name or 'input.pdb')
     base = re.sub(r'[^A-Za-z0-9._-]', '_', base).lstrip('.') or 'input.pdb'
     if not base.lower().endswith(PDB_SUFFIXES):
-        raise ValueError('%s: the PDB panel reads .pdb, .ent, .pdb.gz or .ent.gz files'
+        raise ValueError('%s: ADapt reads .pdb, .ent, .pdb.gz or .ent.gz files'
                          % base)
     return base
 
@@ -82,7 +82,9 @@ class Session(object):
             fh.write(data)
         self.saves = []
         self.events = []
+        from . import APP, __version__
         self.record = {
+            'tool': {'name': APP, 'version': __version__},
             'created': datetime.datetime.now().isoformat(timespec='seconds'),
             'input': {'name': name, 'bytes': len(data),
                       'md5': hashlib.md5(data).hexdigest(),
