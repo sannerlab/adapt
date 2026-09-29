@@ -12,24 +12,27 @@ you get what that panel shows:
 
 ADapt's computation is **ADFR's own code**: the same `runAGFR` / `PDBProfiler` / `ADLigand` calls AGFRgui makes, run in the ADCP distribution's Python (the `adcpsuite` env, Python 3.7, `adfr-0.0.22`). `tests/test_parity.py` checks that the PDBQT files are byte-identical to what ADFR's headless `--toPdbqt` path writes for the same choices; the Qt GUI itself is not part of the tests. Only the Qt tree and its flag logic were ported (`tree.py`, `flags.py`).
 
-ADapt's web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking): a standard-library `ThreadingHTTPServer` bound to localhost with a random token in the URL, one HTML page with plain JavaScript and no build step, and a bundled 3Dmol.js viewer (BSD-3; its licence is in `agfr_web/static/`).
+ADapt's web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking): a standard-library `ThreadingHTTPServer` bound to localhost with a random token in the URL, one HTML page with plain JavaScript and no build step, and a bundled 3Dmol.js viewer (BSD-3; its licence is in `adapt/static/`).
 
 **Name.** The display name is **ADapt** (capital A, capital D: it encodes "AutoDock" and reads as
 the word "adapt"); it is what the page, `--help`, the server's messages and the session records
-show. The Python package (`agfr_web`) and the command (`bin/agfr-web`) keep their technical names.
+show. Identifiers are lower case: the Python package `adapt` and the command `bin/adapt` (named
+`agfr_web` and `bin/agfr-web` before 2026-09-29). The repository is `/home/sanner/claude/adapt/`
+and the default output folder `/home/sanner/claude/adapt_runs/`; their old names (`agfr_web/`,
+`agfr_web_runs/`) are symlinks to them, so paths recorded before the rename still resolve.
 
 ## Run
 
 ```bash
-bin/agfr-web check                  # "ready", or what is missing
-bin/agfr-web serve                  # port 8766; prints http://127.0.0.1:8766/?t=<token>
+bin/adapt check                     # "ADapt is ready", or what is missing
+bin/adapt serve                     # port 8766; prints http://127.0.0.1:8766/?t=<token>
 ```
 
 The printed URL carries a random token; the page answers 403 without it. The server stays up
 until stopped (Ctrl-C, or `kill` its PID when it was started detached, e.g.
-`setsid nohup bin/agfr-web serve > server.log 2>&1 &`).
+`setsid nohup bin/adapt serve > server.log 2>&1 &`).
 
-`bin/agfr-web` sets up the ADCP distribution's `adcpsuite` env the way the `agfr` / `agfrgui`
+`bin/adapt` sets up the ADCP distribution's `adcpsuite` env the way the `agfr` / `agfrgui`
 launchers do (`ADS_ROOT`, no user site-packages); ADFR finds `reduce` through `ADS_ROOT`. Set
 `ADCPSUITE=/path/to/env` to use another installation.
 
@@ -55,17 +58,41 @@ largest assemblies) are reported, not opened, because ADapt reads PDB files. The
 record keeps the URL the file came from.
 
 **Open PDB…** reads a local `.pdb`, `.ent`, `.pdb.gz` or `.ent.gz` file; dropping one on the page
-does the same. ADFR ships the files of its own tests; `bin/agfr-web examples` prints where they
+does the same. ADFR ships the files of its own tests; `bin/adapt examples` prints where they
 are in the installation in use. The same entries can be fetched by id:
 
-| entry | what it exercises |
-|---|---|
-| `6GGD` | 3 tabs (ASU, Biomol 1, Biomol 2); altloc residues; side chains to complete (rotamer preview); a ZN manual charge; the ligand EYB 402. The fullest single example |
-| `1H6W` | Biomol 1 is a trimer: the symmetry copies are drawn at half opacity |
-| `4A1X` | 3 tabs, altlocs, one side chain to complete |
-| `1A3R` | one tab; chain L has insertion codes (SER 27A, LEU 27B, 27C) to mutate |
-| `6BHG` | make chain B the ligand (ADFR's own GUI test does this) |
-| `1JFF`, `1QJ6`, `1WKW`, `5FQ2`, `5HHT` | the rest of ADFR's test set |
+| Entry  | Tabs | Altloc residues | Side chains to complete | Manual-charge ions | Ligands (ADFR) | Missing residues      | Good for                                              |
+|--------|------|-----------------|-------------------------|--------------------|----------------|-----------------------|-------------------------------------------------------|
+| `6GGD` | 3    | 14              | 13                      | 2 (ZN)             | 2 (EYB)        | 44, termini           | the fullest single example                            |
+| `4A1X` | 3    | 20              | 1                       | 2 (ZN)             | -              | 31, 2 gaps + termini  | missing residues (see below)                          |
+| `1H6W` | 2    | 1               | -                       | -                  | -              | 161, N-terminus       | Biomol 1 is a trimer: symmetry copies at half opacity |
+| `1A3R` | 1    | -               | -                       | -                  | -              | 6, 1 gap + N-terminus | insertion codes (chain L 27A, 27B, 27C) to mutate     |
+| `6BHG` | 1    | 19              | 20                      | -                  | -              | 33, 1 gap + termini   | chain B as the ligand (ADFR's own GUI test)           |
+| `1JFF` | 1    | -               | -                       | 2 (MG, ZN)         | 1 (TA1)        | 32, termini (1)       | metals of two kinds; a ligand ADFR knows              |
+| `5HHT` | 1    | 33              | -                       | 2 (CA)             | -              | 9, termini (2)        | many altlocs; a His tag                               |
+| `5FQ2` | 1    | -               | -                       | -                  | -              | 8, termini (3)        | a modified residue in the chain                       |
+| `1WKW` | 1    | -               | -                       | -                  | 1 (GTA)        | -                     |                                                       |
+| `1QJ6` | 1    | -               | -                       | -                  | -              | -                     |                                                       |
+
+Counts are for the ASU tab, measured by ADapt on the RCSB files; ADFR's copies give the same.
+"-" means none. **Ligands (ADFR)** are the residues ADFR's table of PDB entries names as ligands
+(they start in the **ligands** category); other hetero groups go to cofactors, additives or
+**other**. **Missing residues** is what the
+tree's *missing residues* nodes list:
+(1) 1JFF A 35-60 is listed as missing in the file (REMARK 465), but the residues on either side are
+2.68 A apart, so ADFR treats the chain as continuous there and shows no gap;
+(2) the missing last His of 5HHT B's His tag is shown as a missing C-terminus;
+(3) MLZ B505, a methylated lysine written as HETATM, is in the file, so it is not reported missing.
+
+**Missing residues**, with 4A1X: fetch `4A1X` and expand **missing residues** under a chain.
+Each entry is a stretch the file lists as missing (REMARK 465): `gap: SER-3--GKGG--PRO2` means
+GKGG is missing between SER -3 and PRO 2; `N term:` / `C term:` are missing ends (here chain A's
+His tag, `GSHHHHHH`). In the 3D view each gap is a dotted orange line from the C of the residue
+before it to the N of the residue after it, with a sphere at its middle labelled with the missing
+residues; a missing end is a sphere 3 A beyond the terminal atom. Clicking a gap highlights the
+residues on either side of it, clicking a missing end the residue it is missing from. The ASU tab shows all four chains' stretches (8 markers); Biomol 1 and
+Biomol 2 show their own two chains'. Missing residues are information: nothing is rebuilt, and
+the PDBQT files are the same with or without them.
 
 A first session with 6GGD, following ADFR's `testAGFR.py` test2:
 
@@ -94,7 +121,7 @@ The command line has no altloc option, so step 4 is a choice only the panel can 
 
 ## Outputs
 
-Each loaded file gets a session folder under `--outdir` (default `/home/sanner/claude/agfr_web_runs/`, on NFS; `/tmp` is refused). The folder holds:
+Each loaded file gets a session folder under `--outdir` (default `/home/sanner/claude/adapt_runs/`, on NFS; `/tmp` is refused). The folder holds:
 
 - the input PDB, under its own name, because ADFR reads the PDB id from it to look up the known ligands;
 - `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten;
@@ -109,11 +136,12 @@ Each loaded file gets a session folder under `--outdir` (default `/home/sanner/c
 - **Mutations and side-chain choices always take effect.** In AGFRgui, one made after a save was ignored until some checkbox changed.
 - **Clicking a label only focuses the viewer.** In AGFRgui, clicking the label of a partially checked category made every residue under it receptor while the checkbox still showed partial.
 - **The "unknown atom types" subtree is display-only.** Its residues are not user-checkable in AGFRgui either.
+- **Missing residues are shown.** ADFR's `PDBProfiler._gaps` never reported one: it tests `format_alignment(...).split('\n').count('-')`, which counts lines that are exactly `-`, so "missing residues" never appeared in AGFRgui. ADapt uses a copy of that function (`adapt/gaps.py`, the installed ADFR is not changed) with this test fixed and four defects it had been hiding: a chain with no missing C-terminus would have reported its whole sequence as one; modified residues and caps written as HETATM (MLZ, ALY, NH2) were reported missing; a missing end of a His tag could be dropped; a chain without SEQRES raised an error. Checked against the REMARK 465 records of ADFR's ten test PDBs (`tests/test_gaps.py`). The 3D markers are a port of AGFRgui's `addGeomsForGaps`.
 
 ## Faithful, but worth knowing (ADFR behaviour, not changed)
 
 - The rotamer dropdown is a **preview**. When the receptor is written, `mutateResidues` builds the best-scoring rotamer, as in AGFRgui.
-- `recFromPDB._gaps` never reports a gap in adfr-0.0.22: it tests `format_alignment(...).split('\n').count('-')`, which counts lines that are exactly `-`. So "missing residues" never appears in ADapt or in AGFRgui. The node is ported and tested with a synthetic record.
+- A stretch listed as missing whose neighbouring residues are within 3.5 A (C to N) is not shown: ADFR treats the chain as continuous there, and its source names the case it was written for (1JFF GLY34-HIS61, 2.68 A).
 - The order of the letters in `PDBProfiler._altlocsRes` varies between runs, because it comes from set iteration. The chosen letter, and hence the output, does not.
 - The `agfr` / `agfrgui` launcher scripts pass arguments as an unquoted `$@`, so any option value containing spaces (`--heteroToKeep "chid B resnum 402"`) is split and rejected. Call `python -m ADFR.bin.runAGFR` directly for those.
 - The `custom charge` REMARK is written from the ASU molecule's flags, so it is absent when the ion was added to the receptor in another biomolecule's tab. The atom still carries the charge.
@@ -121,7 +149,7 @@ Each loaded file gets a session folder under `--outdir` (default `/home/sanner/c
 ## Tests
 
 ```bash
-bin/agfr-web test [-k name]         # = tests/run_tests.py in the adcpsuite env
+bin/adapt test [-k name]            # = tests/run_tests.py in the adcpsuite env
 ```
 
 There is no pytest in the shared env; `run_tests.py` is a small runner. Outputs go to `tests/_out/<timestamp>/` (git-ignored). The suite covers:
@@ -131,4 +159,6 @@ There is no pytest in the shared env; `run_tests.py` is a small runner. Outputs 
 - the flag semantics;
 - the HTTP layer on a real socket;
 - Fetch from RCSB (id checks, download + cache, mmCIF-only entries, the server route); the
-  network tests skip when the machine has no route to the RCSB.
+  network tests skip when the machine has no route to the RCSB;
+- missing residues against REMARK 465 for the ten test PDBs, the 3D markers, and that ADFR's
+  own `_gaps` reports none.

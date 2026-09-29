@@ -9,9 +9,9 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from agfr_web import env  # noqa: E402  (sets ADS_ROOT)
-from agfr_web.session import LOCK, Session  # noqa: E402
-from agfr_web.tree import CHECKED, LIG, PARTIAL, REC, UNCHECKED  # noqa: E402,F401
+from adapt import env  # noqa: E402  (sets ADS_ROOT)
+from adapt.session import LOCK, Session  # noqa: E402
+from adapt.tree import CHECKED, LIG, PARTIAL, REC, UNCHECKED  # noqa: E402,F401
 
 import ADFR  # noqa: E402
 
@@ -54,12 +54,15 @@ def oracle_receptor(pdb, folder, **extra):
     kw = kw_base.copy()
     kw.update({'receptorFile': os.path.join(DATA, pdb), 'toPdbqt': True})
     kw.update(extra)
+    from adapt import gaps
     cwd = os.getcwd()
     os.chdir(folder)
+    gaps.uninstall()        # ADFR exactly as installed, including its _gaps
     try:
         with quiet():
             runAGFR()(**kw)
     finally:
+        gaps.install()
         os.chdir(cwd)
     return os.path.join(folder, os.path.splitext(pdb)[0] + '_rec.pdbqt')
 

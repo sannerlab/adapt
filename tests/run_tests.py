@@ -1,6 +1,6 @@
 """Run the ADapt tests (no pytest in the shared adcpsuite env).
 
-    bin/agfr-web test [-k substr]     # or: <adcpsuite python> tests/run_tests.py
+    bin/adapt test [-k substr]     # or: <adcpsuite python> tests/run_tests.py
 
 Outputs go to tests/_out/<timestamp>/ (git-ignored), never /tmp.
 """

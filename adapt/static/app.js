@@ -101,7 +101,7 @@ if('showOpenFilePicker' in window){
     let handle;
     try {
       [handle] = await window.showOpenFilePicker({
-        id: 'agfr-pdb',
+        id: 'agfr-pdb',                  // kept across the rename: a new id would forget the folder
         types: [{description: 'PDB files (.pdb .ent .pdb.gz .ent.gz)',
                  accept: {'chemical/x-pdb': ['.pdb', '.ent', '.gz']}}]});
     } catch(err){
@@ -409,9 +409,30 @@ async function loadStructure(tab){
   const n = MODEL.selectedAtoms({}).length;
   if(n !== d.n) status('<span class=bad>viewer read ' + n + ' atoms of ' + d.n
                        + '; highlighting may be off</span>');
+  drawGaps(d.gaps || []);
   restyle();
   v.zoomTo();
   v.render();
+}
+
+/* missing residues, drawn as AGFRgui draws them (gridGUI.addGeomsForGaps): a
+   dotted orange line across each gap with a sphere at its middle labelled with
+   the missing residues, and a sphere beyond each missing terminus. The server
+   computes the coordinates (adapt/gaps.py:geometry). */
+const GAP_COLOR = '#ffa600';
+function drawGaps(gaps){
+  const v = viewer();
+  for(const g of gaps){
+    const [p, q] = g.line.map(c => ({x: c[0], y: c[1], z: c[2]}));
+    v.addCylinder({start: p, end: q, radius: 0.07, color: GAP_COLOR, dashed: true,
+                   dashLength: 0.35, gapLength: 0.25, fromCap: 1, toCap: 1});
+    const c = {x: g.sphere[0], y: g.sphere[1], z: g.sphere[2]};
+    v.addSphere({center: c, radius: 0.3, color: GAP_COLOR});
+    v.addLabel((g.kind === 'gap' ? '' : g.kind + ' term: ') + g.label,
+               {position: c, fontSize: 11, fontColor: '#8a5300', backgroundColor: '#fff3d6',
+                backgroundOpacity: 0.85, borderThickness: 0, inFront: true,
+                alignment: 'bottomLeft'});
+  }
 }
 
 /* receptor grey carbons, ligand orange sticks, the rest purple; symmetry
@@ -484,7 +505,7 @@ async function rotamer(id){
 $('theme').onclick = () => {
   const next = dark() ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
-  try { localStorage.setItem('agfrweb.theme', next); } catch(e) {}
+  try { localStorage.setItem('adapt.theme', next); } catch(e) {}   // 'agfrweb.theme' before the rename is still read
   if(VIEW){ VIEW.setBackgroundColor(dark() ? '#12151c' : 'white'); VIEW.render(); }
 };
 

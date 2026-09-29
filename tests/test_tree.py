@@ -76,27 +76,3 @@ def test_categories_labels_and_defaults_6ggd():
     manch = [n for n in all_nodes(t) if n.charge is not None]
     check(manch and all(n.charge == 2.0 for n in manch if 'ZN' in n.label),
           [(n.label, n.charge) for n in manch])
-
-
-def test_missing_residue_entries():
-    """The "missing residues" node, from PDBProfiler._gapsPerChain.
-
-    ADFR (adfr-0.0.22) never fills _gapsPerChain: recFromPDB._gaps tests
-    format_alignment(...).split('\\n').count('-'), which counts lines that are
-    exactly '-', so no test PDB has an entry and AGFRgui never shows this
-    node either. The port is exercised with a record in the format _gaps
-    would write: [missing N-term, [gaps], missing C-term]."""
-    s = session('6ggd.pdb', 'gaps')
-    check(all(not v for v in s.profile._gapsPerChain.values()))
-    prot = [n for n in find(s.tree(), kind='residue', parent='protein', chain='A')]
-    r = [[n.resname, int(n.resnum), n.icode] for n in (prot[0], prot[10], prot[11], prot[-1])]
-    s.profile._gapsPerChain['A'] = [[r[0], 'MKT'], [[r[1], 'A', 'S', r[2]]], [r[3], 'EE']]
-    s.switch('ASU')             # not built yet: builds with the record
-    g = find(s.tree(), kind='gaps', chain='A')
-    check(len(g) == 1 and g[0].label == 'missing residues', g)
-    labels = [c.label for c in g[0].children]
-    gap = 'gap: %s%d--AS--%s%d' % (r[1][0], r[1][1], r[2][0], r[2][1])
-    check(labels == ['N term: MKT', gap, 'C term: EE'], labels)
-    check(all(c.gapsel is not None for c in g[0].children), 'gap atoms found')
-    check(len(g[0].children[1].gapsel) > 0)   # r1+r2, an AtomMap as in buildUI
-    check(not any(c.live for c in g[0].children))

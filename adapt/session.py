@@ -19,12 +19,15 @@ import traceback
 from collections import OrderedDict
 
 from . import env  # noqa: F401  (sets ADS_ROOT before ADFR is used)
-from . import flags, prep
+from . import flags, gaps, prep
 from .tree import CHECKED, LIG, REC, Tree
 
 # prody, OpenBabel, reduce's pipes and redirect_stdout are all process-wide.
 # The page is one user's, so one lock costs nothing and removes every race.
 LOCK = threading.RLock()
+
+# ADFR's gap detection never fires (adapt/gaps.py); use the fixed copy
+gaps.install()
 
 PDB_SUFFIXES = ('.pdb', '.ent', '.pdb.gz', '.ent.gz')
 
@@ -232,8 +235,11 @@ class Session(object):
         tree = self.tree(name)
         out = io.StringIO()
         prody.writePDBStream(out, tree._mol._ag)
+        with LOCK:
+            geo = gaps.geometry(self.profile._gapsPerChain, tree._mol)
         return {'tab': tree.name, 'pdb': out.getvalue(),
-                'n': len(tree._mol._ag), 'atoms': self.atom_states(name)}
+                'n': len(tree._mol._ag), 'atoms': self.atom_states(name),
+                'gaps': geo}
 
     # ---- edits ------------------------------------------------------------
     def click(self, nid, column):

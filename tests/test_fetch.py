@@ -3,7 +3,7 @@ import json
 import os
 
 from common import check, outdir
-from agfr_web import fetch
+from adapt import fetch
 
 
 def _online():
@@ -53,7 +53,7 @@ def test_fetch_through_the_server():
         return
     import threading
     import urllib.request
-    from agfr_web.server import build
+    from adapt.server import build
     httpd = build('127.0.0.1', 0, outdir('server_fetch'))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     base = 'http://127.0.0.1:%d' % httpd.server_address[1]

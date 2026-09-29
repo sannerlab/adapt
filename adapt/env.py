@@ -69,6 +69,6 @@ def provenance():
         'adfr_dist': os.path.basename(dist[-1])[:-len('.dist-info')] if dist else None,
         'adfr_md5': {f: _md5(os.path.join(pkg, f)) for f in _TRACKED
                      if os.path.isfile(os.path.join(pkg, f))},
-        'agfr_web_commit': commit,
-        'agfr_web_dirty': dirty,
+        'adapt_commit': commit,
+        'adapt_dirty': dirty,
     }

@@ -1,15 +1,15 @@
-"""Command line: python -m agfr_web serve | check | examples | test (bin/agfr-web wraps it)."""
+"""Command line: python -m adapt serve | check | examples | test (bin/adapt wraps it)."""
 import argparse
 import os
 import sys
 
-DEFAULT_OUTDIR = os.environ.get('AGFR_WEB_OUTDIR', '~/agfr_web_runs')
+DEFAULT_OUTDIR = os.environ.get('ADAPT_OUTDIR', '~/adapt_runs')
 
 
 def main(argv=None):
     from . import APP, APP_LONG, __version__
     p = argparse.ArgumentParser(
-        prog='agfr-web',
+        prog='adapt',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description='%s %s: %s\n\n'
                     'Prepares receptor and ligand PDBQT files from a PDB entry in a web\n'
@@ -18,13 +18,13 @@ def main(argv=None):
         epilog='examples:\n'
                '  %(prog)s serve                   start %(app)s on port 8766 and print its URL\n'
                '  %(prog)s serve --port 9000       another fixed port (the browser remembers\n'
-               '                                   folders and theme per port)\n'
+               '                                folders and theme per port)\n'
                '  %(prog)s check                   "ready", or what %(app)s is missing\n'
                '  %(prog)s examples                where ADFR keeps its example PDB files\n'
                '  %(prog)s test -k parity          run part of the test suite\n\n'
                '%(app)s runs ADFR from the ADCP distribution (the adcpsuite env); the\n'
-               'wrapper bin/agfr-web sets that env up. README.md has a first session.'
-               % {'prog': 'agfr-web', 'app': APP})
+               'wrapper bin/adapt sets that env up. README.md has a first session.'
+               % {'prog': 'adapt', 'app': APP})
     p.add_argument('--version', action='version', version='%s %s' % (APP, __version__))
     sub = p.add_subparsers(dest='cmd')
     s = sub.add_parser('serve', help='start %s in a browser page (prints its URL)' % APP)

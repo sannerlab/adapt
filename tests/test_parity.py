@@ -105,7 +105,7 @@ def test_tab_switch_writes_the_new_biomolecule():
 def _oracle_ligands(pdb, tab, chid, folder):
     """ADFR's ligand path on atoms flagged with prody directly: chain `chid`
     of segment A, no water, no unsupported atom types, the chosen altloc."""
-    from agfr_web.session import gui_options
+    from adapt.session import gui_options
     from ADFR.utils.runAGFR import runAGFR
     from common import DATA
     with quiet():

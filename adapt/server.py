@@ -245,14 +245,14 @@ def _save(s, kind):
     return d
 
 
-def build(host='127.0.0.1', port=8766, outdir='~/agfr_web_runs'):
+def build(host='127.0.0.1', port=8766, outdir='~/adapt_runs'):
     httpd = ThreadingHTTPServer((host, port), Handler)
     httpd.daemon_threads = True
     httpd.app = App(outdir)
     return httpd
 
 
-def serve(host='127.0.0.1', port=8766, outdir='~/agfr_web_runs'):
+def serve(host='127.0.0.1', port=8766, outdir='~/adapt_runs'):
     httpd = build(host, port, outdir)
     bound = httpd.server_address[1]
     url = 'http://%s:%d/?t=%s' % (host, bound, httpd.app.token)

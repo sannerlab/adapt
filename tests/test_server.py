@@ -9,7 +9,7 @@ from common import DATA, check, oracle_receptor, outdir, read
 
 
 def _server():
-    from agfr_web.server import build
+    from adapt.server import build
     httpd = build('127.0.0.1', 0, outdir('server'))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, 'http://127.0.0.1:%d' % httpd.server_address[1], httpd.app.token

@@ -11,7 +11,7 @@ from . import APP, APP_LONG, __version__
 PAGE = r"""<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__APP__ &middot; __APP_LONG__</title>
-<script>try { const t = localStorage.getItem("agfrweb.theme");
+<script>try { const t = localStorage.getItem("adapt.theme") || localStorage.getItem("agfrweb.theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
 } catch (e) {}</script>
 <link rel="stylesheet" href="/static/app.css?v=__V_CSS__">
