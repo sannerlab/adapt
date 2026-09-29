@@ -460,10 +460,14 @@ function restyle(){
   v.render();
 }
 
+// a lone atom (an ion, a metal) has no carbon for a "greenCarbon" scheme to
+// colour, so it is drawn as a larger sphere in the highlight colour itself
+const HL_COLOR = {greenCarbon: '#2fd13a', orangeCarbon: '#ff9f1a'};
 function paintHighlight(h){
   const set = new Set(h.indices);
   const sel = {model: MODEL, predicate: a => set.has(a.index)};
-  if(h.indices.length === 1) viewer().addStyle(sel, {sphere: {scale: 0.35, colorscheme: h.scheme}});
+  if(h.indices.length === 1)      // set, not add: the ion's own sphere style would keep its element colour
+    viewer().setStyle(sel, {sphere: {radius: 0.75, color: HL_COLOR[h.scheme] || '#2fd13a'}});
   else viewer().addStyle(sel, {stick: {colorscheme: h.scheme, radius: 0.22}});
   return sel;
 }

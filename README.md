@@ -142,9 +142,28 @@ Each loaded file gets a session folder under `--outdir` (default `/home/sanner/c
 
 - The rotamer dropdown is a **preview**. When the receptor is written, `mutateResidues` builds the best-scoring rotamer, as in AGFRgui.
 - A stretch listed as missing whose neighbouring residues are within 3.5 A (C to N) is not shown: ADFR treats the chain as continuous there, and its source names the case it was written for (1JFF GLY34-HIS61, 2.68 A).
-- The order of the letters in `PDBProfiler._altlocsRes` varies between runs, because it comes from set iteration. The chosen letter, and hence the output, does not.
+- **The default alternate location is not reproducible when occupancies tie.** ADFR picks the location with the most atoms, then the highest occupancy, and breaks a tie by taking the last tied letter in `set` order, which Python varies from run to run (hash randomisation). 1FV1 D:SER19 (A 0.50 / B 0.50) defaults to A in some runs and B in others, and so does the written receptor. Ties are common: all 7 altloc residues of 1FV1, 2 of 4A1X's 20, 2 of 5HHT's 33, 4 of 6BHG's 19. The `REMARK 850 AGFR altlocs` line records the letter that was used; choose tied residues explicitly when it matters. This is ADFR's behaviour (agfr and AGFRgui alike) and is not changed here.
 - The `agfr` / `agfrgui` launcher scripts pass arguments as an unquoted `$@`, so any option value containing spaces (`--heteroToKeep "chid B resnum 402"`) is split and rejected. Call `python -m ADFR.bin.runAGFR` directly for those.
 - The `custom charge` REMARK is written from the ASU molecule's flags, so it is absent when the ion was added to the receptor in another biomolecule's tab. The atom still carries the charge.
+
+## Documentation
+
+`docs/` holds the user documentation as static HTML: an overview of the problem ADapt addresses,
+a getting-started page, one page per case (biological assembly vs ASU, choosing between
+assemblies, side chains, alternate locations, ligands, metals and unsupported atoms, missing
+residues, mutations), how the files are written, and how ADapt relates to AGFRgui. A running
+ADapt serves it at `/docs/`, linked from the **Docs** button; the files also open directly from
+`docs/index.html`.
+
+Every screenshot is of ADapt itself. To remake them after the page changes, and rebuild the pages:
+
+```bash
+python3 docs/make_screenshots.py [scene ...]   # headless Chrome against a fresh ADapt server
+python3 docs/build_docs.py                     # docs/src/*.html -> docs/*.html
+```
+
+`make_screenshots.py` needs `google-chrome` and access to files.rcsb.org, and keeps its work files in
+`tests/_out/docs_run/`.
 
 ## Tests
 

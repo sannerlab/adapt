@@ -24,6 +24,9 @@ MAX_BODY = 1 << 20
 MAX_UPLOAD = 256 << 20      # a large assembly PDB can be tens of MB
 
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+# the documentation (docs/ of the repository): public pages, served without the token
+DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'docs')
+DOC_TYPES = {'.html': 'text/html; charset=utf-8', '.css': 'text/css', '.png': 'image/png'}
 
 
 class App(object):
@@ -140,6 +143,8 @@ class Handler(BaseHTTPRequestHandler):
         app = self.server.app
         if u.path.startswith('/static/'):
             return self._static(u.path)
+        if u.path == '/docs' or u.path.startswith('/docs/'):
+            return self._docs(u.path)
         if not self._auth(q):
             if u.path == '/':
                 return self._send('open the URL this tool printed; it carries the token',
@@ -176,6 +181,25 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', ctype)
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'max-age=3600')
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _docs(self, path):
+        """docs/*.html, docs/style.css and docs/img/*.png; nothing else under docs/."""
+        rel = path[len('/docs'):].lstrip('/') or 'index.html'
+        parts = rel.split('/')
+        ok = (len(parts) == 1 and parts[0].endswith(('.html', '.css'))) or \
+             (len(parts) == 2 and parts[0] == 'img' and parts[1].endswith('.png'))
+        full = os.path.abspath(os.path.join(DOCS, *parts))
+        if not ok or not full.startswith(os.path.abspath(DOCS) + os.sep) \
+                or '..' in parts or not os.path.isfile(full):
+            return self._send({'error': 'no such page'}, 404)
+        with open(full, 'rb') as fh:
+            body = fh.read()
+        self.send_response(200)
+        self.send_header('Content-Type', DOC_TYPES[os.path.splitext(full)[1]])
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'max-age=600')
         self.end_headers()
         self.wfile.write(body)
 

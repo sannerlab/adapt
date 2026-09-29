@@ -25,6 +25,8 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
   <span id=pdblabel class=dim>or drop a PDB file anywhere on the page</span>
   <span class=grow></span>
   <span id=envnote class=dim></span>
+  <a class=btn id=docslink href="/docs/index.html" target=_blank rel=noopener
+     title="What __APP__ does, with worked examples">Docs</a>
   <button id=theme class=plain title="light / dark">&#9681;</button>
 </header>
 <main>

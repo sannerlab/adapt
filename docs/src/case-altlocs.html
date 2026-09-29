@@ -1,0 +1,43 @@
+<h1>Alternate locations</h1>
+<p class="lead">Where the crystal shows a side chain in more than one conformation, choose the one
+to dock against.</p>
+
+<p>A residue whose atoms have alternate locations is listed under its chain's <b>altloc</b>
+group, sorted into the usual categories. Clicking the <b>altloc</b> node itself highlights all
+of them at once, which is the quickest way to see whether any sits near your pocket, and whether
+you might want its side chain flexible in docking.</p>
+<figure>
+<img src="img/altloc_group.png" alt="1FV1 Biomol 2, altloc group of chain D selected">
+<figcaption><b>1FV1, Biomol 2, chain D, altloc node selected</b>: its three residues (SER'19,
+THR'83, THR'93) are highlighted in green.</figcaption>
+</figure>
+
+<h2>Choosing a location</h2>
+<p>Each residue offers its locations, with their occupancies, as radio buttons in the params
+column. The chosen one is used for the receptor, and the others are left out.</p>
+<figure>
+<img src="img/altloc_residue.png" alt="SER19 of chain D with its two alternate locations">
+<figcaption><b>SER'19 of chain D</b>: locations A and B, each at occupancy 0.50.</figcaption>
+</figure>
+<figure class="small">
+<img src="img/altloc_radios.png" alt="radio buttons A 0.50 and B 0.50">
+</figure>
+<div class="pair">
+<figure><img src="img/altloc_B_zoom.png" alt="SER19 location B">
+<figcaption>Location <b>B</b>.</figcaption></figure>
+<figure><img src="img/altloc_A_zoom.png" alt="SER19 location A">
+<figcaption>Location <b>A</b>: the hydroxyl points elsewhere.</figcaption></figure>
+</div>
+<p>The choice is recorded in the receptor file
+(<code>REMARK 850 AGFR altlocs D:SER:19:_ @A (0.50)</code>), and it is applied in every tab that
+contains the residue.</p>
+
+<h2>The default</h2>
+<p>ADFR selects by default the location with the most atoms, then the one with the highest
+occupancy.</p>
+<div class="note"><b>Ties are not reproducible.</b> When two locations have the same occupancy, as
+all seven altloc residues of 1FV1 do, ADFR's pick depends on the order in which Python iterates a
+set. That order varies from run to run, so SER'19 defaults to A in some runs and to B in others.
+The same holds for <code>agfr</code> and AGFRgui. Ties are common (2 of the 20 altloc residues of
+4A1X, 4 of 19 in 6BHG). If a tied residue matters for your docking, choose its location explicitly:
+the choice you make is always the one written.</div>

@@ -1,0 +1,22 @@
+<h1>Mutating residues</h1>
+<p class="lead">Replace a residue by any standard amino acid, to dock against a variant or to
+remove a side chain that gets in the way.</p>
+
+<p>Right-clicking a residue under <b>protein</b> (or under <b>modified</b>) opens a menu of the
+standard amino acids to mutate it to.</p>
+<figure>
+<img src="img/mutate_menu.png" alt="6GGD Biomol 2, mutate menu on SER96 of chain B">
+<figcaption><b>6GGD, Biomol 2, chain B, SER'96</b>: the mutate menu. The residue is highlighted
+in the 3D view while its menu is open.</figcaption>
+</figure>
+<figure class="small">
+<img src="img/mutate_done.png" alt="SER96 labelled SER96 -> ILE">
+<figcaption>After choosing ILE, the label reads <code>SER'96 -&gt; ILE</code>. The same menu
+then offers <code>Base Res: SER</code> to undo the mutation.</figcaption>
+</figure>
+<p>The mutation is made when the receptor is written: the new side chain is built on the
+residue's backbone with the best-scoring rotamer, as for a <a href="case-sidechains.html">side
+chain to complete</a>. It is recorded in the file (<code>REMARK 850 AGFR mutation B:SER:96:_ -&gt;
+ILE</code>) and applied to symmetry copies of the chain as well.</p>
+<p>For a <b>modified</b> residue, the menu starts with its parent residue
+(<code>Base Res: …</code>), which returns it to the standard amino acid.</p>

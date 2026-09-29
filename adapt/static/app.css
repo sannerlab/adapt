@@ -77,3 +77,4 @@ summary{cursor:pointer;color:var(--dim)}
 #busy span{background:var(--card);border:1px solid var(--line);padding:10px 18px;border-radius:8px}
 body.drag main{outline:3px dashed var(--accent);outline-offset:-6px}
 [hidden]{display:none !important}
+a.btn{text-decoration:none;display:inline-block}

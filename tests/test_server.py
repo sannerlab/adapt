@@ -101,3 +101,20 @@ def test_upload_edit_save_download():
         check(no == 400, 'saving a ligand with no ligand atoms is refused (%s)' % no)
     finally:
         httpd.shutdown()
+
+
+def test_docs_are_served():
+    """The documentation is public (no token); only docs/ pages, style and images."""
+    httpd, base, tok = _server()
+    try:
+        st, body, hdr = _get(base + '/docs/', raw=True)
+        check(st == 200 and b'<h1>ADapt</h1>' in body and 'text/html' in hdr['Content-Type'])
+        for path in ('/docs/case-biomolecule.html', '/docs/style.css', '/docs/img/overview.png'):
+            check(_code(base + path) == 200, path)
+        for bad in ('/docs/../README.md', '/docs/%2e%2e/README.md', '/docs/build_docs.py',
+                    '/docs/src/index.html', '/docs/tools/cdp.py', '/docs/img/../index.html'):
+            check(_code(base + bad) == 404, bad)
+        st, body, hdr = _get(base + '/?t=' + tok, raw=True)
+        check(b'href="/docs/index.html"' in body, 'the page links the docs')
+    finally:
+        httpd.shutdown()

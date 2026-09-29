@@ -1,0 +1,33 @@
+<h1>Missing residues</h1>
+<p class="lead">4A1X: see where the model has holes. Gaps in the chain and missing ends are
+listed in the tree and drawn in the 3D view.</p>
+
+<p>Residues without electron density are not in the model, and the file lists them (its
+<code>REMARK 465</code> records). ADapt compares each chain's sequence with the residues present
+and lists what is missing under <b>missing residues</b>:</p>
+<ul>
+<li><code>gap: SER-3--GKGG--PRO2</code>: GKGG is missing between SER -3 and PRO 2;</li>
+<li><code>N term: GEL</code> and <code>C term: GSHHHHHH</code>: residues missing at the start or
+end of the chain (here the His tag).</li>
+</ul>
+<figure>
+<img src="img/gaps_biomol1.png" alt="4A1X Biomol 1, a gap selected">
+<figcaption><b>4A1X, Biomol 1.</b> The selected gap of chain A is drawn as a dotted orange line
+from the C of SER -3 to the N of PRO 2, with a sphere at its middle labelled with the missing
+residues (GKGG). Selecting the entry highlights the residues on either side of the
+gap.</figcaption>
+</figure>
+<figure>
+<img src="img/gaps_asu.png" alt="4A1X ASU with all missing-residue markers">
+<figcaption><b>4A1X, ASU</b>: the markers for all four chains. A missing end is drawn as a
+sphere 3 Å beyond the terminal N (or C) atom, joined to it by a dotted line.</figcaption>
+</figure>
+<p>Missing residues are information: nothing is rebuilt, and the PDBQT files are the same whether
+or not a chain has any. A gap near the pocket is a reason to prefer another assembly or entry,
+or to model the loop before docking.</p>
+<div class="note"><b>A stretch whose ends meet is not shown.</b> If the residues on either side of
+a missing stretch are within 3.5 Å of each other (C to N), ADFR treats the chain as continuous
+there and does not report it. For example, 1JFF chain A lists residues 35-60 as missing, but
+GLY 34 and HIS 61 are 2.68 Å apart.</div>
+<p>AGFRgui never showed missing residues, because ADFR's detection had a defect. ADapt uses a
+corrected copy of it; see <a href="differences.html">ADapt and AGFRgui</a>.</p>
