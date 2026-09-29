@@ -1,3 +1,4 @@
+/* Author: Michel Sanner, PhD. Copyright (c) 2026. Portions adapted from ADCP_docking (BSD 3-Clause); see THIRD_PARTY_NOTICES.md. */
 /* ADapt page behaviour. Plain JavaScript, no framework and no build step
    (the ADCP_docking convention). Every change is made by the server, which
    runs AGFRgui's own code; the page only draws what the server returns, so a
@@ -81,7 +82,7 @@ $('fetchform').addEventListener('submit', async e => {
 function loaded(d){
   S = d; STRUCT = {}; OPEN = {}; SEL = null;
   $('pdblabel').textContent = d.label;
-  $('folder').textContent = 'session folder: ' + d.folder;
+  $('folder').textContent = 'session folder: ' + (d.folder_display || d.folder);
   $('saves').innerHTML = '';
   showTab(d);
   status('loaded ' + esc(d.pdbid) + ': ' + d.tabs.length + ' biomolecule tab'

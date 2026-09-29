@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Run the ADapt tests (no pytest in the shared adcpsuite env).
 
     bin/adapt test [-k substr]     # or: <adcpsuite python> tests/run_tests.py

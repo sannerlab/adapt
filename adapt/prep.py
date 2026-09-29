@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Writing the receptor and ligand PDBQT files: AGFRgui's two save buttons.
 
 Same calls, in the same order, as PDBAnalyserWidget._processReceptor +

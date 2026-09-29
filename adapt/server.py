@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026. Portions adapted from ADCP_docking (BSD 3-Clause); see THIRD_PARTY_NOTICES.md.
 """ADapt's web front end: a local page that does what AGFRgui's PDB panel does.
 
 The server pattern (standard library only, bound to localhost, a random token

@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Command line: python -m adapt serve | check | examples | test (bin/adapt wraps it)."""
 import argparse
 import os
@@ -7,7 +8,7 @@ DEFAULT_OUTDIR = os.environ.get('ADAPT_OUTDIR', '~/adapt_runs')
 
 
 def main(argv=None):
-    from . import APP, APP_LONG, __version__
+    from . import APP, APP_LONG, COPYRIGHT, __version__
     p = argparse.ArgumentParser(
         prog='adapt',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -23,9 +24,10 @@ def main(argv=None):
                '  %(prog)s examples                where ADFR keeps its example PDB files\n'
                '  %(prog)s test -k parity          run part of the test suite\n\n'
                '%(app)s runs ADFR from the ADCP distribution (the adcpsuite env); the\n'
-               'wrapper bin/adapt sets that env up. README.md has a first session.'
-               % {'prog': 'adapt', 'app': APP})
-    p.add_argument('--version', action='version', version='%s %s' % (APP, __version__))
+               'wrapper bin/adapt sets that env up. README.md has a first session.\n\n'
+               '%(copyright)s'
+               % {'prog': 'adapt', 'app': APP, 'copyright': COPYRIGHT})
+    p.add_argument('--version', action='version', version='%s %s\n%s' % (APP, __version__, COPYRIGHT))
     sub = p.add_subparsers(dest='cmd')
     s = sub.add_parser('serve', help='start %s in a browser page (prints its URL)' % APP)
     s.add_argument('--host', default='127.0.0.1',

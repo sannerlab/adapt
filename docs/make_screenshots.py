@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Regenerate the documentation screenshots (docs/img/*.png) from ADapt itself.
 
     python3 docs/make_screenshots.py [scene ...]
@@ -7,10 +8,11 @@ Starts an ADapt server (bin/adapt, port 0) and a headless Chrome, and for
 each scene fetches an entry from the RCSB, clicks through the page the way a
 user would, and captures the window or a part of it. Every image in the docs
 is an ADapt screenshot made here, so they can be remade after the page changes.
-Work files go to tests/_out/docs_run/ (git-ignored), never /tmp.
+Sessions go to ~/adapt_runs/docs_screenshots/, the Chrome profile and the
+server log to tests/_out/docs_run/ (git-ignored); never /tmp.
 
 Needs: google-chrome, network access to files.rcsb.org (entries are cached
-under tests/_out/docs_run/_rcsb/ after the first run).
+under ~/adapt_runs/docs_screenshots/_rcsb/ after the first run).
 """
 import json
 import os
@@ -25,7 +27,10 @@ sys.path.insert(0, os.path.join(HERE, 'tools'))
 import cdp  # noqa: E402
 
 IMG = os.path.join(HERE, 'img')
-WORK = os.path.join(REPO, 'tests', '_out', 'docs_run')
+WORK = os.path.join(REPO, 'tests', '_out', 'docs_run')          # Chrome profile, server log
+# the sessions the scenes create: under the default output folder, so the
+# folder the screenshots show reads as a user's would (~/adapt_runs/...)
+SESSIONS = os.path.join(os.path.expanduser('~'), 'adapt_runs', 'docs_screenshots')
 W, H = 1440, 960
 
 # Counts in-flight requests, so a scene waits for the page to finish talking
@@ -352,8 +357,9 @@ def main(argv):
     os.makedirs(IMG, exist_ok=True)
     os.makedirs(WORK, exist_ok=True)
     log = open(os.path.join(WORK, 'server.log'), 'w')
+    os.makedirs(SESSIONS, exist_ok=True)
     server = subprocess.Popen([os.path.join(REPO, 'bin', 'adapt'), 'serve', '--port', '0',
-                               '--outdir', WORK], stdout=subprocess.PIPE,
+                               '--outdir', SESSIONS], stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, universal_newlines=True)
     url = None
     for line in server.stdout:

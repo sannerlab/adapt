@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026. Derived from ADFR / AGFRgui code; see THIRD_PARTY_NOTICES.md.
 """What a click in the tree does to the receptor/ligand flags.
 
 Ports of ReceptorItemsTree.setRecFlag, setLigFlag, _setItemFlags, onClick,

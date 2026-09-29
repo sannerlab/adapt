@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Byte parity with ADFR's own headless code path.
 
 Each test drives a web Session the way a user would (tab, checkboxes, menus)

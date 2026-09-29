@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """The HTTP layer, end to end on a real socket."""
 import json
 import os

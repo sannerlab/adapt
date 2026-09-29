@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026. Derived from ADFR / AGFRgui code; see THIRD_PARTY_NOTICES.md.
 """Rotamer preview for side chains AGFRgui will complete.
 
 Port of ReceptorItemsTree.addRotamerMol / _setRotamer (pdbAnalyser.py,

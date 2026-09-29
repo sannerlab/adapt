@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """The ADFR installation this tool drives, and what it records about it.
 
 The computation is ADFR's own (the AGFRgui code paths), run inside the ADCP

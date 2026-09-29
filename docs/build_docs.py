@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Build the ADapt documentation: docs/src/<page>.html -> docs/<page>.html.
 
     python3 docs/build_docs.py
@@ -45,8 +46,9 @@ TEMPLATE = """<!doctype html>
 <main>
 {content}
 <div class="pn">{prev}{next}</div>
-<footer class="page">ADapt documentation. Every screenshot is of ADapt itself, made by
-<code>docs/make_screenshots.py</code>; the chemistry is ADFR's own code (ADCP distribution).</footer>
+<footer class="page">ADapt documentation. Author: Michel Sanner, PhD. Copyright &copy; 2026.
+Every screenshot is of ADapt itself, made by <code>docs/make_screenshots.py</code>; the chemistry
+is ADFR's own code (ADCP distribution).</footer>
 </main></div></body></html>
 """
 

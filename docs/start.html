@@ -35,7 +35,10 @@
 <h2>Requirements</h2>
 <ul>
 <li>The ADCP distribution's Python environment (<code>adcpsuite</code>). It provides ADFR,
-MolKit2, ProDy, Open Babel and <code>reduce</code>, which do all of the chemistry.</li>
+MolKit2, ProDy, Open Babel and <code>reduce</code>, which do all of the chemistry.
+<code>bin/adapt</code> finds it by itself: <code>$ADCPSUITE</code>, <code>$ADS_ROOT</code>, the
+environment of an <code>adcp</code> or <code>agfr</code> on your <code>PATH</code>, then the usual
+conda / micromamba locations. Set <code>ADCPSUITE=/path/to/env</code> to choose one.</li>
 <li>A current browser. In Chrome and Edge, <b>Open PDB…</b> remembers the folder you last opened
 a file from. Firefox and Safari work too, but their file dialog chooses its own starting folder.</li>
 <li>For <b>Fetch from RCSB</b>, access to <code>files.rcsb.org</code> from the machine that runs
@@ -73,7 +76,7 @@ where they are installed.</p>
 
 <h2 id="where">Where the files go</h2>
 <p>Each loaded file gets a session folder under the output folder (default
-<code>/home/sanner/claude/adapt_runs/</code>; <code>/tmp</code> is refused):</p>
+<code>~/adapt_runs/</code>, or <code>--outdir</code>, or <code>$ADAPT_OUTDIR</code>; <code>/tmp</code> is refused):</p>
 <pre>6ggd_20260929-143042_9acda1/
   6ggd.pdb              the input, as loaded
   save_001_rec/         every save in its own numbered folder: nothing is overwritten
@@ -84,6 +87,7 @@ where they are installed.</p>
 <p>See <a href="output.html">Writing the PDBQT files</a> for what the files and the record
 contain.</p>
 <div class="pn"><a href="index.html">&larr; Overview</a><a href="tree-3d.html">The tree and the 3D view &rarr;</a></div>
-<footer class="page">ADapt documentation. Every screenshot is of ADapt itself, made by
-<code>docs/make_screenshots.py</code>; the chemistry is ADFR's own code (ADCP distribution).</footer>
+<footer class="page">ADapt documentation. Author: Michel Sanner, PhD. Copyright &copy; 2026.
+Every screenshot is of ADapt itself, made by <code>docs/make_screenshots.py</code>; the chemistry
+is ADFR's own code (ADCP distribution).</footer>
 </main></div></body></html>

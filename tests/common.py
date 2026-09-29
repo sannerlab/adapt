@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Shared helpers: the ADFR test PDBs, a per-run output folder, the headless
 ADFR oracle, and tree-walking helpers that click the way a user would."""
 import contextlib

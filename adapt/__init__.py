@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """ADapt, the AutoDock preparation & perception tool.
 
 Reads a PDB file, shows one tab per biomolecule with its residues grouped the
@@ -11,6 +12,10 @@ package and the command bin/adapt (both `agfr_web` / `bin/agfr-web` before
 2026-09-29).
 """
 __version__ = '0.1.0'
+__author__ = 'Michel Sanner, PhD'
+__copyright__ = 'Copyright (c) 2026 Michel Sanner, PhD'
 
 APP = 'ADapt'
 APP_LONG = 'AutoDock preparation & perception tool'
+AUTHOR = __author__
+COPYRIGHT = __copyright__

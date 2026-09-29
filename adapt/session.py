@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """One uploaded PDB file and everything the panel does to it.
 
 A Session is what GridGUI.loadReceptor + PDBAnalyserWidget hold in AGFRgui:
@@ -228,6 +229,7 @@ class Session(object):
     def info(self):
         return {'session': self.id, 'pdbid': self.profile._pdbid,
                 'label': self.label(), 'folder': self.folder,
+                'folder_display': _home_tilde(self.folder),
                 'tabs': list(self.trees), 'current': self.current}
 
     def structure(self, name=None):
@@ -379,3 +381,11 @@ def _jsonable(d):
         except TypeError:
             out[k] = repr(v)
     return out
+
+
+def _home_tilde(path):
+    """A path as shown to the user: the home folder written as ~."""
+    home = os.path.expanduser('~')
+    if home and home != '/' and (path == home or path.startswith(home + os.sep)):
+        return '~' + path[len(home):]
+    return path

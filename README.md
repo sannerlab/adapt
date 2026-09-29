@@ -1,5 +1,7 @@
 # ADapt — AutoDock preparation & perception tool
 
+Author: Michel Sanner, PhD. Copyright © 2026. See [License](#license).
+
 **ADapt** prepares the receptor and ligand PDBQT files for AutoDock from a PDB entry, in a web
 browser. It does what AGFRgui's PDB panel does. Open a PDB file (or fetch one from the RCSB) and
 you get what that panel shows:
@@ -16,10 +18,7 @@ ADapt's web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking):
 
 **Name.** The display name is **ADapt** (capital A, capital D: it encodes "AutoDock" and reads as
 the word "adapt"); it is what the page, `--help`, the server's messages and the session records
-show. Identifiers are lower case: the Python package `adapt` and the command `bin/adapt` (named
-`agfr_web` and `bin/agfr-web` before 2026-09-29). The repository is `/home/sanner/claude/adapt/`
-and the default output folder `/home/sanner/claude/adapt_runs/`; their old names (`agfr_web/`,
-`agfr_web_runs/`) are symlinks to them, so paths recorded before the rename still resolve.
+show. Identifiers are lower case: the Python package `adapt` and the command `bin/adapt`.
 
 ## Run
 
@@ -33,8 +32,10 @@ until stopped (Ctrl-C, or `kill` its PID when it was started detached, e.g.
 `setsid nohup bin/adapt serve > server.log 2>&1 &`).
 
 `bin/adapt` sets up the ADCP distribution's `adcpsuite` env the way the `agfr` / `agfrgui`
-launchers do (`ADS_ROOT`, no user site-packages); ADFR finds `reduce` through `ADS_ROOT`. Set
-`ADCPSUITE=/path/to/env` to use another installation.
+launchers do (`ADS_ROOT`, no user site-packages); ADFR finds `reduce` through `ADS_ROOT`. It finds
+the environment by itself: `$ADCPSUITE`, `$ADS_ROOT`, the environment of an `adcp` or `agfr` on the
+`PATH`, `$CONDA_PREFIX`, then an `adcpsuite` env in the usual micromamba / conda locations. Set
+`ADCPSUITE=/path/to/env` to choose one.
 
 **From another machine**, run the server on the host that has the env, then forward its port:
 
@@ -121,7 +122,7 @@ The command line has no altloc option, so step 4 is a choice only the panel can 
 
 ## Outputs
 
-Each loaded file gets a session folder under `--outdir` (default `/home/sanner/claude/adapt_runs/`, on NFS; `/tmp` is refused). The folder holds:
+Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`, else `~/adapt_runs/`; `/tmp` is refused). The folder holds:
 
 - the input PDB, under its own name, because ADFR reads the PDB id from it to look up the known ligands;
 - `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten;
@@ -162,8 +163,8 @@ python3 docs/make_screenshots.py [scene ...]   # headless Chrome against a fresh
 python3 docs/build_docs.py                     # docs/src/*.html -> docs/*.html
 ```
 
-`make_screenshots.py` needs `google-chrome` and access to files.rcsb.org, and keeps its work files in
-`tests/_out/docs_run/`.
+`make_screenshots.py` needs `google-chrome` and access to files.rcsb.org. Its sessions go to
+`~/adapt_runs/docs_screenshots/`, and its Chrome profile and log to `tests/_out/docs_run/`.
 
 ## Tests
 
@@ -181,3 +182,15 @@ There is no pytest in the shared env; `run_tests.py` is a small runner. Outputs 
   network tests skip when the machine has no route to the RCSB;
 - missing residues against REMARK 465 for the ten test PDBs, the 3D markers, and that ADFR's
   own `_gaps` reports none.
+
+## License
+
+Author: Michel Sanner, PhD. Copyright © 2026. All rights reserved: no license has been chosen yet,
+and one will be added to this repository.
+
+Parts of ADapt come from other software, under their own licences. `THIRD_PARTY_NOTICES.md` lists
+them:
+
+- 3Dmol.js, bundled in `adapt/static/` (BSD 3-Clause);
+- code adapted from ADCP_docking (BSD 3-Clause);
+- code derived from ADFR / AGFRgui, which ADapt drives but does not include.

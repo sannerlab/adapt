@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026. Derived from ADFR / AGFRgui code; see THIRD_PARTY_NOTICES.md.
 """Gap detection for AGFR's PDB panel: PDBProfiler._gaps with its defects fixed.
 
 A verbatim copy of ADFR/recFromPDB.py:PDBProfiler._gaps (adcpsuite ADFR,

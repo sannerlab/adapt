@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Missing residues: ADapt's fixed PDBProfiler._gaps, checked against the PDB
 files' own REMARK 465 records (the residues the depositors list as missing)."""
 import collections

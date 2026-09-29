@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026. Portions adapted from ADCP_docking (BSD 3-Clause); see THIRD_PARTY_NOTICES.md.
 """The web page: one file, no build step, no network access at run time.
 
 Layout and conventions (token in the URL, plain JavaScript, bundled 3Dmol.js,
@@ -6,7 +7,7 @@ light/dark switch) follow ADCP_docking/adcp_dock/page.py by Aadhil Haq
 one tab per biomolecule, a residue tree with receptor and ligand columns and a
 params column, the rec./lig./other show buttons and the two save buttons.
 """
-from . import APP, APP_LONG, __version__
+from . import APP, APP_LONG, COPYRIGHT, __version__
 
 PAGE = r"""<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -57,7 +58,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
 </main>
 <div id=menu class=menu hidden></div>
 <div id=busy hidden><span>working&hellip;</span></div>
-<footer class=dim>__APP__ __VERSION__ &middot; computation by ADFR (AGFRgui's own code,
+<footer class=dim>__APP__ __VERSION__ &middot; __COPYRIGHT__ &middot; computation by ADFR (AGFRgui's own code,
 ADCP distribution) &middot; viewer 3Dmol.js (Rego &amp; Koes, Bioinformatics 2015)</footer>
 <script src="/static/3Dmol-min.js?v=__V_3DMOL__"></script>
 <script src="/static/app.js?v=__V_JS__"></script>
@@ -78,6 +79,7 @@ def render():
     import html
     return (PAGE.replace('__VERSION__', __version__)
                 .replace('__APP_LONG__', html.escape(APP_LONG))
+                .replace('__COPYRIGHT__', html.escape(COPYRIGHT).replace('(c)', '&copy;'))
                 .replace('__APP__', html.escape(APP))
                 .replace('__V_CSS__', _v('app.css'))
                 .replace('__V_JS__', _v('app.js'))

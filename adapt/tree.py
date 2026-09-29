@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026. Derived from ADFR / AGFRgui code; see THIRD_PARTY_NOTICES.md.
 """The residue tree of one biomolecule tab, as data instead of Qt widgets.
 
 A port of ADFR/GUI/pdbAnalyser.py:ReceptorItemsTree.buildUI (adcpsuite ADFR,

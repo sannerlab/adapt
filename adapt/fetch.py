@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026. Portions adapted from ADCP_docking (BSD 3-Clause); see THIRD_PARTY_NOTICES.md.
 """Fetching an entry from the RCSB by its PDB id, and caching it.
 
 Ported from ADCP_docking/adcp_dock/fetch.py by Aadhil Haq (BSD 3-Clause).

@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """The tree mirrors ReceptorItemsTree.buildUI."""
 from common import (CHECKED, PDBS, REC, UNCHECKED, all_nodes, check, find,
                     session)

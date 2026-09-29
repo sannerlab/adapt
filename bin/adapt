@@ -1,18 +1,54 @@
 #!/bin/sh
-# Run ADapt (AutoDock preparation & perception tool) with the ADCP distribution's Python (the adcpsuite env), set up
-# the way the agfr / agfrgui launcher scripts set it up (ADS_ROOT, no user
-# site-packages, no inherited PYTHONPATH), so ADFR finds reduce.
+# ADapt, the AutoDock preparation & perception tool.
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 #
-#   bin/adapt serve                 # port 8766, outputs in $ADAPT_OUTDIR
+# Runs ADapt with the ADCP distribution's Python (the "adcpsuite" environment),
+# set up the way the agfr / agfrgui launcher scripts set it up (ADS_ROOT, no
+# user site-packages, no inherited PYTHONPATH), so ADFR finds reduce.
 #
-# ADCPSUITE overrides the env location.
-ADCPSUITE="${ADCPSUITE:-/home/sanner/micromamba/envs/adcpsuite}"
+#   bin/adapt serve            # port 8766, outputs in $ADAPT_OUTDIR (default ~/adapt_runs)
+#
+# The environment is the first of: $ADCPSUITE, $ADS_ROOT, the environment of
+# an `adcp` or `agfr` on the PATH, $CONDA_PREFIX, then an "adcpsuite" env in
+# the usual micromamba / conda locations. Set ADCPSUITE to choose one.
+
+is_env() {  # an environment with ADFR and reduce in it
+    [ -n "$1" ] && [ -x "$1/bin/python" ] && [ -x "$1/bin/reduce" ] &&
+        ls -d "$1"/lib/python*/site-packages/ADFR >/dev/null 2>&1
+}
+
+find_env() {
+    for c in "$ADCPSUITE" "$ADS_ROOT"; do
+        if is_env "$c"; then echo "$c"; return 0; fi
+    done
+    for tool in adcp agfr; do
+        p="$(command -v "$tool" 2>/dev/null)"
+        if [ -n "$p" ]; then
+            c="$(cd "$(dirname "$p")/.." 2>/dev/null && pwd)"
+            if is_env "$c"; then echo "$c"; return 0; fi
+        fi
+    done
+    for c in "$CONDA_PREFIX" "$MAMBA_ROOT_PREFIX/envs/adcpsuite" \
+             "$HOME/micromamba/envs/adcpsuite" "$HOME/.local/share/mamba/envs/adcpsuite" \
+             "$HOME/miniforge3/envs/adcpsuite" "$HOME/mambaforge/envs/adcpsuite" \
+             "$HOME/miniconda3/envs/adcpsuite" "$HOME/anaconda3/envs/adcpsuite" \
+             "/opt/conda/envs/adcpsuite"; do
+        if is_env "$c"; then echo "$c"; return 0; fi
+    done
+    return 1
+}
+
+ENV_ROOT="$(find_env)" || {
+    echo "ADapt: no ADCP environment found (a Python environment with ADFR and reduce," >&2
+    echo "       e.g. the ADCP distribution's 'adcpsuite'). Set ADCPSUITE=/path/to/env." >&2
+    exit 2
+}
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-export PATH="$ADCPSUITE/bin:$PATH"
-export ADS_ROOT="$ADCPSUITE"
+export PATH="$ENV_ROOT/bin:$PATH"
+export ADS_ROOT="$ENV_ROOT"
 export PYTHONNOUSERSITE="disable"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ADS_ROOT/lib"
 # only this package on the path, as the launchers leave nothing else
 export PYTHONPATH="$HERE"
-export ADAPT_OUTDIR="${ADAPT_OUTDIR:-/home/sanner/claude/adapt_runs}"
-exec "$ADCPSUITE/bin/python" -m adapt "$@"
+export ADAPT_OUTDIR="${ADAPT_OUTDIR:-$HOME/adapt_runs}"
+exec "$ENV_ROOT/bin/python" -m adapt "$@"

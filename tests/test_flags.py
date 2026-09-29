@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """What the checkboxes, altloc radios, charges and menus do to the atoms."""
 import os
 

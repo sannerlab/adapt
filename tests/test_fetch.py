@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """Fetch from RCSB. The network tests skip (with a message) when offline."""
 import json
 import os

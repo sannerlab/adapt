@@ -1,3 +1,4 @@
+# Author: Michel Sanner, PhD. Copyright (c) 2026.
 """A minimal Chrome DevTools Protocol client, standard library only.
 
 Used by docs/make_screenshots.py to drive a headless Chrome against a running
