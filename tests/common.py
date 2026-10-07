@@ -116,3 +116,20 @@ def set_state(s, node, col, want):
 def check(cond, msg=''):
     if not cond:
         raise AssertionError(msg)
+
+
+BIOMOL = b'REMARK 850 AGFR biomolecule '
+
+
+def without_biomolecule(data):
+    """A PDBQT file as ADFR writes it: ADapt's bytes minus the one line it adds
+    (REMARK 850 AGFR biomolecule ...), which must be there exactly once, right
+    after the "source" line. ADFR's own files pass through unchanged."""
+    lines = data.split(b'\n')
+    at = [i for i, l in enumerate(lines) if l.startswith(BIOMOL)]
+    if not at:
+        return data
+    check(len(at) == 1, 'one biomolecule line, found %d' % len(at))
+    check(lines[at[0] - 1].startswith((b'REMARK 850 AGFR source', b'REMARK 850 source')),
+          'biomolecule line follows source')
+    return b'\n'.join(lines[:at[0]] + lines[at[0] + 1:])

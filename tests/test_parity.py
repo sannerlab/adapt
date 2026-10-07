@@ -10,11 +10,16 @@ atoms flagged directly with prody, independently of the tree code.
 import os
 
 from common import (CHECKED, LIG, PDBS, REC, UNCHECKED, check, find, outdir,
-                    oracle_receptor, quiet, read, session, set_state)
+                    oracle_receptor, quiet, read, session, set_state,
+                    without_biomolecule)
 
 
 def _same(a, b):
-    ba, bb = read(a), read(b)
+    """ADapt's file `a` equals ADFR's `b`, but for ADapt's biomolecule line."""
+    raw = read(a)
+    check(b'REMARK 850 AGFR biomolecule ' in raw, '%s records its biomolecule' % a)
+    ba, bb = without_biomolecule(raw), read(b)
+    check(b'REMARK 850 AGFR biomolecule' not in bb, 'ADFR writes no biomolecule line')
     if ba != bb:
         la, lb = ba.decode().splitlines(), bb.decode().splitlines()
         for i, (x, y) in enumerate(zip(la, lb)):
@@ -167,3 +172,25 @@ def test_6bhg_chain_B_as_ligand():
           '%s vs %s' % (web, ref))
     for a, b in zip(web, ref):
         _same(a, b)
+
+
+def test_ion_charge_matches_command_line():
+    """An edited ion charge == agfr --ionCharges in the atom records. The header
+    differs: ADFR's command line reports the asymmetric unit's default charge
+    (2.0000) in its custom-charge REMARK although the atom it writes carries the
+    requested one; ADapt reports the charge it wrote."""
+    s = session('6ggd.pdb', 'ioncharge')
+    s.switch('ASU')
+    zn = find(s.tree(), key='A:ZN:401:_')[0]
+    set_state(s, zn, REC, CHECKED)
+    s.charge(zn.id, 1.5)
+    web = without_biomolecule(read(_save(s, 'receptor')[0])).decode().splitlines()
+    ref = read(oracle_receptor('6ggd.pdb', outdir('oracle_ioncharge'), bioMol='ASU',
+                               heteroToKeep='chid A resnum 401',
+                               ionCharges='A:ZN:401::1.5')).decode().splitlines()
+    check(len(web) == len(ref), (len(web), len(ref)))
+    diff = [(a, b) for a, b in zip(web, ref) if a != b]
+    check(diff == [('REMARK 850 AGFR custom charge for A:ZN:401: = 1.5000',
+                    'REMARK 850 AGFR custom charge for A:ZN:401: = 2.0000')], diff)
+    zn_line = [l for l in web if l[17:20] == ' ZN'][0]
+    check(float(zn_line[70:76]) == 1.5, zn_line)

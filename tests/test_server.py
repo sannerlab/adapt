@@ -6,7 +6,7 @@ import threading
 import urllib.error
 import urllib.request
 
-from common import DATA, check, oracle_receptor, outdir, read
+from common import DATA, check, oracle_receptor, outdir, read, without_biomolecule
 
 
 def _server():
@@ -96,7 +96,8 @@ def test_upload_edit_save_download():
         st, body, hdr = _get(base + '/api/download' + t + '&s=%s&save=%d' % (sid, sv['save']), raw=True)
         check('1a3r_rec.pdbqt' in hdr.get('Content-Disposition', ''), hdr)
         ref = oracle_receptor('1a3r.pdb', outdir('oracle_server'))
-        check(body == read(ref), 'downloaded receptor differs from agfr --toPdbqt')
+        check(without_biomolecule(body) == read(ref), 'downloaded receptor differs from agfr --toPdbqt')
+        check(b'REMARK 850 AGFR biomolecule ASU and Biomol 1: chains H L P' in body, 'biomolecule recorded')
 
         no = _code(base + '/api/save' + t, json.dumps({'s': sid, 'kind': 'ligand'}).encode())
         check(no == 400, 'saving a ligand with no ligand atoms is refused (%s)' % no)

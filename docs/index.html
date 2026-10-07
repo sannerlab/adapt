@@ -23,6 +23,7 @@
 </ul>
 <h4>Results</h4><ul>
 <li><a href="output.html">Writing the PDBQT files</a></li>
+<li><a href="provenance.html">Provenance in the PDBQT files</a></li>
 </ul>
 <h4>Reference</h4><ul>
 <li><a href="differences.html">ADapt and AGFRgui</a></li>
@@ -81,11 +82,12 @@ the same code as the PDB analyzer of AutoGridFR's graphical interface (AGFRgui):
 shows the fragment in the structure, so every choice can be made in context;</li>
 <li>it writes the <b>receptor PDBQT</b> (hydrogens added by reduce, Gasteiger charges, AutoDock
 atom types) and <b>one ligand PDBQT per selected fragment</b>. Both files carry
-<code>REMARK 850</code> records listing what was done to the PDB data, and each session keeps a
-record of every choice.</li>
+<code>REMARK 850</code> records listing what was done to the PDB data (see
+<a href="provenance.html">provenance</a>), and each session keeps a record of every choice.</li>
 </ul>
 <p>The receptor files ADapt writes are byte-identical to those of ADFR's command line
-(<code>agfr --toPdbqt</code>) for the same choices; ADapt's test suite checks this.</p>
+(<code>agfr --toPdbqt</code>) for the same choices, except for one line ADapt adds to each file to
+record which biomolecule was used. ADapt's test suite checks this.</p>
 
 <h2 id="interface">The interface</h2>
 <ol class="legend">
@@ -160,6 +162,7 @@ fetched by its id to follow along.</p>
 <a class="card" href="case-missing-residues.html"><img src="img/gaps_biomol1.png" alt=""><span><b>Missing residues</b>4A1X: gaps and missing termini, in the tree and in 3D.</span></a>
 <a class="card" href="case-mutations.html"><img src="img/mutate_menu.png" alt=""><span><b>Mutating residues</b>Replace a residue by any standard amino acid.</span></a>
 <a class="card" href="output.html"><img src="img/saved_files.png" alt=""><span><b>Writing the PDBQT files</b>What is written, and how it is recorded.</span></a>
+<a class="card" href="provenance.html"><img src="img/saved_files.png" alt="" style="object-position:right bottom"><span><b>Provenance in the PDBQT files</b>Every REMARK record, and how to rebuild a receptor from it.</span></a>
 </div>
 
 <h2 id="references">References</h2>

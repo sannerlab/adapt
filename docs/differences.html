@@ -23,6 +23,7 @@
 </ul>
 <h4>Results</h4><ul>
 <li><a href="output.html">Writing the PDBQT files</a></li>
+<li><a href="provenance.html">Provenance in the PDBQT files</a></li>
 </ul>
 <h4>Reference</h4><ul>
 <li><a class="here" href="differences.html">ADapt and AGFRgui</a></li>
@@ -37,11 +38,16 @@ original fixed.</p>
 It does not reimplement the chemistry. The assemblies, categories, defaults, side-chain
 completion, mutations, protonation, charges and PDBQT writing are all ADFR's own code, run from
 the ADCP distribution (<code>adfr-0.0.22</code>). Only the Qt interface was rewritten. For the
-same choices, the receptor ADapt writes is byte-identical to ADFR's command line; ADapt's test
-suite checks this on ADFR's own test files.</p>
+same choices, the receptor ADapt writes is byte-identical to ADFR's command line, except for the
+<code>REMARK 850 AGFR biomolecule</code> line ADapt adds to each file (below). ADapt's test suite checks this on
+ADFR's own test files.</p>
 
 <h2>Fixed in ADapt</h2>
 <ul>
+<li><b>The receptor and ligand files record their biomolecule.</b> A
+<code>REMARK 850 AGFR biomolecule</code> line names the tab the file was written from, the chains it
+uses and, for an assembly built by symmetry, the number of copies. ADFR's header writer has this
+line commented out.</li>
 <li><b>Missing residues are shown.</b> ADFR's detection never reported one, because its test for a
 gap in the alignment was always false. ADapt uses a corrected copy of that function, which also
 fixes four defects the test had been hiding. The results match the files' own REMARK 465 records
@@ -84,7 +90,7 @@ See <a href="case-altlocs.html">Alternate locations</a>.</li>
 <li><b>Atoms outside the AutoDock 4.1 types</b> are left out, with no substitution. See
 <a href="case-metals.html#unknown">unsupported atoms</a>.</li>
 </ul>
-<div class="pn"><a href="output.html">&larr; Writing the PDBQT files</a><span></span></div>
+<div class="pn"><a href="provenance.html">&larr; Provenance in the PDBQT files</a><span></span></div>
 <footer class="page">ADapt documentation. Author: Michel Sanner, PhD. Copyright &copy; 2026.
 Every screenshot is of ADapt itself, made by <code>docs/make_screenshots.py</code>; the chemistry
 is ADFR's own code (ADCP distribution).</footer>

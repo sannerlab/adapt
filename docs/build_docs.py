@@ -30,6 +30,7 @@ PAGES = [
     ('case-missing-residues', 'Missing residues', 'Cases'),
     ('case-mutations', 'Mutating residues', 'Cases'),
     ('output', 'Writing the PDBQT files', 'Results'),
+    ('provenance', 'Provenance in the PDBQT files', 'Results'),
     ('differences', 'ADapt and AGFRgui', 'Reference'),
 ]
 

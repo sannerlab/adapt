@@ -12,7 +12,7 @@ you get what that panel shows:
 - a right-click menu to complete a side chain or leave it as is, and to mutate a residue;
 - two save buttons that write **receptor.pdbqt** and **ligand.pdbqt**.
 
-ADapt's computation is **ADFR's own code**: the same `runAGFR` / `PDBProfiler` / `ADLigand` calls AGFRgui makes, run in the ADCP distribution's Python (the `adcpsuite` env, Python 3.7, `adfr-0.0.22`). `tests/test_parity.py` checks that the PDBQT files are byte-identical to what ADFR's headless `--toPdbqt` path writes for the same choices; the Qt GUI itself is not part of the tests. Only the Qt tree and its flag logic were ported (`tree.py`, `flags.py`).
+ADapt's computation is **ADFR's own code**: the same `runAGFR` / `PDBProfiler` / `ADLigand` calls AGFRgui makes, run in the ADCP distribution's Python (the `adcpsuite` env, Python 3.7, `adfr-0.0.22`). `tests/test_parity.py` checks that the PDBQT files are byte-identical to what ADFR's headless `--toPdbqt` path writes for the same choices, except for one line ADapt adds to each file's header (`REMARK 850 AGFR biomolecule`, see below); the Qt GUI itself is not part of the tests. Only the Qt tree and its flag logic were ported (`tree.py`, `flags.py`).
 
 ADapt's web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking): a standard-library `ThreadingHTTPServer` bound to localhost with a random token in the URL, one HTML page with plain JavaScript and no build step, and a bundled 3Dmol.js viewer (BSD-3; its licence is in `adapt/static/`).
 
@@ -106,7 +106,7 @@ A first session with 6GGD, following ADFR's `testAGFR.py` test2:
    *Files written*; the session folder shown there keeps them.
 
 After steps 1-3 (keeping ZN and EYB in the receptor), the receptor PDBQT is byte-identical to
-what ADFR's command line writes for the same choices (checked on the fetched 6GGD; the
+what ADFR's command line writes for the same choices, apart from ADapt's biomolecule line (checked on the fetched 6GGD; the
 `testAGFR.py` scenarios are in `tests/test_parity.py`):
 
 ```bash
@@ -130,6 +130,8 @@ Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`
 
 ## Where ADapt differs from AGFRgui (all fixes of GUI defects)
 
+- **The receptor and ligand files record their biomolecule.** ADapt adds one line after the header's `source` line (`REMARK 850 AGFR source` in a receptor, `REMARK 850 source` in a ligand): the tab the file was written from, the chains of the asymmetric unit it uses, and, for an assembly built by symmetry, the number of copies. Examples: `REMARK 850 AGFR biomolecule Biomol 2: chains B`, `REMARK 850 AGFR biomolecule Biomol 1: chains A B, 3 copies`, `REMARK 850 AGFR biomolecule ASU: chains A B`. ADFR's header writer has a commented-out placeholder for this line. The same line goes into every ligand file. It is the only difference between ADapt's files and ADFR's, and the parity tests check exactly that.
+
 - **An edited manual charge is used.** AGFRgui's `_getCharges` reads a checkbox column the charge items never have, so the spin box value was silently dropped and the default charge written. With unedited charges both write the same bytes.
 - **Tab switches apply correctly.**
   - AGFRgui kept the processed molecule across a tab switch, so a save right after switching wrote the previous biomolecule. Here it writes the new one.
@@ -145,6 +147,7 @@ Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`
 - A stretch listed as missing whose neighbouring residues are within 3.5 A (C to N) is not shown: ADFR treats the chain as continuous there, and its source names the case it was written for (1JFF GLY34-HIS61, 2.68 A).
 - **The default alternate location is not reproducible when occupancies tie.** ADFR picks the location with the most atoms, then the highest occupancy, and breaks a tie by taking the last tied letter in `set` order, which Python varies from run to run (hash randomisation). 1FV1 D:SER19 (A 0.50 / B 0.50) defaults to A in some runs and B in others, and so does the written receptor. Ties are common: all 7 altloc residues of 1FV1, 2 of 4A1X's 20, 2 of 5HHT's 33, 4 of 6BHG's 19. The `REMARK 850 AGFR altlocs` line records the letter that was used; choose tied residues explicitly when it matters. This is ADFR's behaviour (agfr and AGFRgui alike) and is not changed here.
 - The `agfr` / `agfrgui` launcher scripts pass arguments as an unquoted `$@`, so any option value containing spaces (`--heteroToKeep "chid B resnum 402"`) is split and rejected. Call `python -m ADFR.bin.runAGFR` directly for those.
+- ADFR's command line misreports an ion charge set with `--ionCharges`: the atom gets the requested charge, but its `custom charge` REMARK gives the default (e.g. `= 2.0000` for a zinc set to 1.5), because that line is read from the asymmetric unit, which the option does not change. ADapt sets the charge there too, so its REMARK reports the charge written (`tests/test_parity.py::test_ion_charge_matches_command_line`).
 - The `custom charge` REMARK is written from the ASU molecule's flags, so it is absent when the ion was added to the receptor in another biomolecule's tab. The atom still carries the charge.
 
 ## Documentation

@@ -129,3 +129,41 @@ def test_session_record():
     check(set(rec['environment']['adfr_md5']) >= {'utils/runAGFR.py', 'recFromPDB.py'})
     check([e['what'] for e in rec['events']] == ['check'], rec['events'])
     check(rec['saves'][0]['files'][0]['name'] == '1a3r_rec.pdbqt')
+
+
+def test_receptor_records_its_biomolecule():
+    """REMARK 850 AGFR biomolecule: the tab, its ASU chains, and the number of
+    copies when the assembly is built by symmetry."""
+    def header(s, tab):
+        s.switch(tab)
+        d = s.save('receptor')
+        path = os.path.join(s.folder, 'save_%03d_rec' % d['save'], d['files'][0]['name'])
+        return [l for l in read(path).decode().splitlines() if l.startswith('REMARK 850 AGFR')]
+    s = session('6ggd.pdb', 'biomol_6ggd')
+    for tab, want in (('ASU', 'ASU: chains A B'), ('Biomol 2', 'Biomol 2: chains B')):
+        h = header(s, tab)
+        check(h[1].startswith('REMARK 850 AGFR source') and
+              h[2] == 'REMARK 850 AGFR biomolecule ' + want, (tab, h[:3]))
+    s = session('1h6w.pdb', 'biomol_1h6w')
+    h = header(s, 'Biomol 1')            # chains A and B, generated three times
+    check(h[2] == 'REMARK 850 AGFR biomolecule Biomol 1: chains A B, 3 copies', h[:3])
+    rec = s.saves[-1]
+    check(rec['tab'] == 'Biomol 1', rec['tab'])
+
+
+def test_ligand_records_its_biomolecule():
+    """Every ligand file carries the same biomolecule line, after its own
+    "REMARK 850 source" line: here two fragments (the EYB of each chain of the
+    6GGD ASU), so two numbered files."""
+    s = session('6ggd.pdb', 'biomol_lig')
+    s.switch('ASU')
+    for key in ('A:EYB:402:_', 'B:EYB:402:_'):
+        set_state(s, find(s.tree(), key=key)[0], LIG, CHECKED)
+    d = s.save('ligand')
+    names = [f['name'] for f in d['files']]
+    check(names == ['6ggd_lig_001.pdbqt', '6ggd_lig_002.pdbqt'], names)
+    for name in names:
+        lines = read(os.path.join(s.folder, 'save_%03d_lig' % d['save'], name)).decode().splitlines()
+        i = [k for k, l in enumerate(lines) if 'biomolecule' in l]
+        check(len(i) == 1 and lines[i[0]] == 'REMARK 850 AGFR biomolecule ASU: chains A B', (name, lines[:4]))
+        check(lines[i[0] - 1].startswith('REMARK 850 source'), (name, lines[:4]))
