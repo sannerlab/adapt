@@ -6,8 +6,9 @@ import os
 
 import numpy
 
-from common import DATA, PDBS, check, find, quiet, session
-from adapt import gaps
+from common import DATA, PDBS, check, find, outdir, quiet, read, session
+from adapt import env, gaps
+from adapt.session import Session
 
 
 def remark465(path):
@@ -33,7 +34,8 @@ def _profile(pdb):
     with quiet():
         a = runAGFR()
         a.proccessPreLoadCmdLineOptions(gui_options())
-        a.loadReceptor(os.path.join(DATA, pdb), processReceptor=False)
+        a.loadReceptor(pdb if os.path.isabs(pdb) else os.path.join(DATA, pdb),
+                       processReceptor=False)
     return a.PDBprofile
 
 
@@ -125,3 +127,64 @@ def test_tree_and_3d_markers_4a1x():
     s.switch('Biomol 1')                       # only chains A and C
     check(sorted(g.parent.label for g in find(s.tree(), kind='gaps')) == ['A', 'C'])
     check(len(s.structure()['gaps']) == 4)
+
+
+def _selenium_6ggd():
+    """6GGD with chain A's methionines written as selenomethionine (MSE, as
+    SeMet structures are deposited: HETATM, SE) and its first SEQRES residue,
+    SER 94 (missing, REMARK 465), as selenocysteine (SEC)."""
+    out = []
+    first = True
+    for l in read(os.path.join(DATA, '6ggd.pdb')).decode().splitlines():
+        if l.startswith('SEQRES') and l[11] == 'A':
+            l = l.replace(' MET ', ' MSE ')
+            if first:
+                l = l[:19] + 'SEC' + l[22:]
+                first = False
+        elif l.startswith('REMARK 465     SER A    94'):
+            l = l.replace('SER', 'SEC', 1)
+        elif l.startswith('ATOM') and l[17:20] == 'MET' and l[21] == 'A':
+            l = 'HETATM' + l[6:17] + 'MSE' + l[20:]
+            if l[12:16] == ' SD ':
+                l = l[:12] + 'SE  ' + l[16:76] + 'SE' + l[78:]
+        out.append(l)
+    folder = outdir('selenium')
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, '6ggd.pdb')
+    with open(path, 'w') as fh:
+        fh.write('\n'.join(out) + '\n')
+    return path
+
+
+def test_selenomethionine_and_selenocysteine():
+    """FIX 6: SEQRES with MSE (aligned as '?', unknown to BLOSUM62) or SEC ('U')
+    made the aligner raise SystemError and the file could not be opened. Now it
+    opens, its missing residues still match REMARK 465, SEC keeps its letter,
+    and the receptor is written with MSE as MET."""
+    path = _selenium_6ggd()
+    text = read(path).decode()
+    check(text.count('HETATM') > 0 and ' MSE A' in text and 'SEC A' in text, 'test file')
+    p = _profile(path)
+    want = remark465(path)
+    for chid in set(want) | set(p._gapsPerChain):
+        v = p._gapsPerChain.get(chid, ['', [], ''])
+        listed = want.get(chid, [])
+        check(_count(v) == len(listed), '%s: %d reported, REMARK 465 lists %d'
+              % (chid, _count(v), len(listed)))
+        for resname, num in listed:
+            check(_placed(v, num), '%s %s%d not inside a reported stretch' % (chid, resname, num))
+    mrn = p._gapsPerChain['A'][0]
+    check(mrn and mrn[1].startswith('U'), 'SEC keeps its letter: %r' % (mrn and mrn[1],))
+    with quiet():
+        s = Session('selenium', text.encode(), '6ggd.pdb', outdir('selenium_session'),
+                    env.provenance())
+        s.switch('ASU')
+        d = s.save('receptor')
+    rec = read(os.path.join(s.folder, 'save_%03d_rec' % d['save'],
+                            d['files'][0]['name'])).decode()
+    a160 = [l for l in rec.splitlines() if l.startswith(('ATOM', 'HETATM'))
+            and l[21] == 'A' and l[22:26] == ' 160']
+    check(a160 and all(l[17:20] == 'MET' for l in a160), 'A 160 written as MET')
+    check(any(l[77:79].strip() in ('S', 'SA') for l in a160), 'with a sulfur')
+    check(not any('SE' in l[12:16] or l[77:79].strip() == 'Se' for l in rec.splitlines()
+                  if l.startswith(('ATOM', 'HETATM'))), 'no selenium left')

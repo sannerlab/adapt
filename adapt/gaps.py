@@ -2,7 +2,7 @@
 """Gap detection for AGFR's PDB panel: PDBProfiler._gaps with its defects fixed.
 
 A verbatim copy of ADFR/recFromPDB.py:PDBProfiler._gaps (adcpsuite ADFR,
-adfr-0.0.22), extracted from the installed file, with five marked fixes:
+adfr-0.0.22), extracted from the installed file, with six marked fixes:
 
   FIX 1  the test for missing residues never fired, so _gapsPerChain was always
          empty and neither AGFRgui nor ADapt ever showed "missing residues";
@@ -13,6 +13,10 @@ adfr-0.0.22), extracted from the installed file, with five marked fixes:
          were left out of the structure sequence and reported as missing;
   FIX 5  a missing terminal residue of a homopolymer run (a His tag) could be
          aligned inside the run, and was then dropped as "no physical gap".
+  FIX 6  a residue letter the substitution matrix lacks made the aligner raise
+         SystemError, so the file could not be opened at all: '?', which
+         AAnames gives MSE (selenomethionine), HID/HIE/HIP, CYX, ACE, ...; and
+         U, O, J, which SEQRES gives SEC, PYL, XLE. They are aligned as 'X'.
 
 Checked against the REMARK 465 records of ADFR's ten test PDBs
 (tests/test_gaps.py). KEPT AS ADFR HAS IT: a stretch listed as missing whose
@@ -69,6 +73,26 @@ def _polymer_residues(chain):
                 (nxt is not None and _near(res, nxt.select('name N'))):
             out.append((res, 'X'))
     return out
+
+
+_ALPHABET = frozenset(blosum62.alphabet)
+
+
+def _alignable(seq):
+    """FIX 6: `seq` with every letter blosum62 lacks written as 'X'."""
+    return ''.join(c if c in _ALPHABET else 'X' for c in seq)
+
+
+def _with_letters(aln, seqA, seqB):
+    """The alignment `aln` of _alignable(seqA) and _alignable(seqB), spelled
+    with the original letters (the gaps, '-', are where they were)."""
+    def spell(aligned, original):
+        it = iter(original)
+        return ''.join(c if c == '-' else next(it) for c in aligned)
+    a, b = spell(aln[0], seqA), spell(aln[1], seqB)
+    if hasattr(aln, '_replace'):
+        return aln._replace(seqA=a, seqB=b)
+    return (a, b) + tuple(aln[2:])
 
 
 def _terminal_runs(aln):
@@ -141,8 +165,10 @@ def _gaps(self, polymers):
             #aln = pw.align.globalms(polymers[chid].sequence, fasta,
             #                        1, -1, -2, -.5)[0]
             # identical to: aln = pw.align.globalms("EPQYEEIPIYL", "EPQ?EEIPIYL", match=1, mismatch=-1, open=-2, extend=-.5)[0]
-            aln = pw.align.globalds(polymers[chid].sequence, fasta,
+            seqres = polymers[chid].sequence
+            aln = pw.align.globalds(_alignable(seqres), _alignable(fasta),   # FIX 6
                                     blosum62, -10, -0.5)[0]
+            aln = _with_letters(aln, seqres, fasta)
             # FIX 5: in a run of identical residues that reaches a chain end (a His
             # tag), the aligner may put a missing terminal residue inside the run;
             # the physical-gap test below then finds two touching residues and the
