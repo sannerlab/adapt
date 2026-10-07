@@ -19,6 +19,9 @@ line commented out.</li>
 <li><b>A ligand file names the residues it came from</b>
 (<code>REMARK 850 AGFR ligand from B:EYB:402:_</code>), with their real chain, which its atom
 records lose.</li>
+<li><b>The receptor is also written with all its hydrogens</b>, as <code>reduce</code> placed
+them (<code>&lt;id&gt;_rec_H.pdb</code>), with <code>reduce</code>'s choices for each histidine,
+asparagine and glutamine. ADFR discards this output after reading it.</li>
 <li><b>Missing residues are shown.</b> ADFR's detection never reported one, because its test for a
 gap in the alignment was always false. ADapt uses a corrected copy of that function, which also
 fixes four defects the test had been hiding. The results match the files' own REMARK 465 records

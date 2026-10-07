@@ -78,6 +78,27 @@ class App(object):
         d['fetched'] = {'url': url, 'from_cache': cached}
         return d
 
+    def open_session(self, sid):
+        """What /api/upload returns, for a session that already exists: a
+        page opened with ?session=<id> shows a session it did not start."""
+        s = self.session(sid)
+        d = s.info()
+        d.update(s.view(full=True))
+        # the files written so far, for the page's "Files written" list
+        d['saves'] = [{'save': v['n'], 'kind': v['kind'], 'tab': v['tab'], 'files': v['files']}
+                      for v in s.saves if 'files' in v]
+        return d
+
+    def list_sessions(self):
+        """The sessions this server holds, newest first."""
+        with self._lock:
+            ss = list(self.sessions.values())
+        out = [{'session': s.id, 'pdbid': s.profile._pdbid, 'label': s.label(),
+                'folder_display': s.info().get('folder_display'), 'tabs': list(s.trees),
+                'current': s.current, 'created': s.record.get('created'),
+                'saves': len(s.saves)} for s in ss]
+        return {'sessions': sorted(out, key=lambda d: d['created'] or '', reverse=True)}
+
     def session(self, sid):
         s = self.sessions.get(sid or '')
         if s is None:
@@ -137,9 +158,30 @@ class Handler(BaseHTTPRequestHandler):
             return self._send({'error': '%s: %s' % (type(e).__name__, e),
                                'trace': traceback.format_exc()}, 500)
 
+    def _url(self):
+        """The request URL with the base path (--base-path) taken off, or None
+        when a redirect was sent instead. Requests without the prefix are
+        served as well, so / keeps working."""
+        u = urllib.parse.urlparse(self.path)
+        base = getattr(self.server, 'base_path', '')
+        if base:
+            if u.path == base:
+                # the page's paths are relative: they need the trailing slash
+                loc = base + '/' + ('?' + u.query if u.query else '')
+                self.send_response(301)
+                self.send_header('Location', loc)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return None
+            if u.path.startswith(base + '/'):
+                u = u._replace(path=u.path[len(base):])
+        return u
+
     # ---- GET ---------------------------------------------------------------
     def do_GET(self):
-        u = urllib.parse.urlparse(self.path)
+        u = self._url()
+        if u is None:
+            return
         q = urllib.parse.parse_qs(u.query)
         app = self.server.app
         if u.path.startswith('/static/'):
@@ -156,6 +198,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(page.render(), 200, 'text/html')
         if u.path == '/api/status':
             return self._run(app.status)
+        if u.path == '/api/session':
+            return self._run(lambda: app.open_session(g('s')))
+        if u.path == '/api/sessions':
+            return self._run(app.list_sessions)
         if u.path == '/api/structure':
             return self._run(lambda: app.session(g('s')).structure(g('tab')))
         if u.path == '/api/focus':
@@ -165,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == '/api/rotamer':
             return self._run(lambda: app.session(g('s')).rotamer(g('node'), g('choice', '-1')))
         if u.path == '/api/download':
-            return self._download(app, g('s'), g('save'))
+            return self._download(app, g('s'), g('save'), g('file'))
         return self._send({'error': 'no such endpoint'}, 404)
 
     def _static(self, path):
@@ -204,17 +250,23 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _download(self, app, sid, n):
+    def _download(self, app, sid, n, name=None):
+        """A save's file: the one named by `file` (its base name, as listed in
+        the save), the only one, or all of them as a zip."""
         try:
             s = app.session(sid)
             entry, paths = s.save_paths(n)
+            if name:
+                paths = [p for p in paths if os.path.basename(p) == name]
+                if not paths:
+                    raise Refused('save %s has no file %r' % (n, name))
         except (Refused, ValueError) as e:
             return self._send({'error': str(e)}, 400)
         if len(paths) == 1:
             with open(paths[0], 'rb') as fh:
                 body = fh.read()
             name = os.path.basename(paths[0])
-            ctype = 'chemical/x-pdbqt'
+            ctype = 'chemical/x-pdb' if name.endswith('.pdb') else 'chemical/x-pdbqt'
         else:
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
@@ -228,7 +280,9 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- POST --------------------------------------------------------------
     def do_POST(self):
-        u = urllib.parse.urlparse(self.path)
+        u = self._url()
+        if u is None:
+            return
         q = urllib.parse.parse_qs(u.query)
         if not self._auth(q):
             return self._send({'error': 'bad or missing token'}, 403)
@@ -270,17 +324,30 @@ def _save(s, kind):
     return d
 
 
-def build(host='127.0.0.1', port=8766, outdir='~/adapt_runs'):
+def clean_base_path(base):
+    """'/adapt' from 'adapt', '/adapt/' or '/adapt'; '' for none."""
+    base = (base or '').strip().strip('/')
+    if not base:
+        return ''
+    if not all(part and part not in ('.', '..') for part in base.split('/')):
+        raise ValueError('bad base path %r' % base)
+    return '/' + base
+
+
+def build(host='127.0.0.1', port=8766, outdir='~/adapt_runs', base_path=''):
     httpd = ThreadingHTTPServer((host, port), Handler)
     httpd.daemon_threads = True
     httpd.app = App(outdir)
+    # served under a path prefix (e.g. behind a proxy at /adapt/): requests
+    # may carry it, and the printed URL does
+    httpd.base_path = clean_base_path(base_path)
     return httpd
 
 
-def serve(host='127.0.0.1', port=8766, outdir='~/adapt_runs'):
-    httpd = build(host, port, outdir)
+def serve(host='127.0.0.1', port=8766, outdir='~/adapt_runs', base_path=''):
+    httpd = build(host, port, outdir, base_path)
     bound = httpd.server_address[1]
-    url = 'http://%s:%d/?t=%s' % (host, bound, httpd.app.token)
+    url = 'http://%s:%d%s/?t=%s' % (host, bound, httpd.base_path, httpd.app.token)
     print('%s %s (%s) is at\n\n    %s\n' % (APP, __version__, APP_LONG, url), flush=True)
     print('outputs are kept in %s' % httpd.app.outdir, flush=True)
     miss = env.check()

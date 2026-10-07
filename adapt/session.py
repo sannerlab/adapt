@@ -20,7 +20,7 @@ import traceback
 from collections import OrderedDict
 
 from . import env  # noqa: F401  (sets ADS_ROOT before ADFR is used)
-from . import flags, gaps, prep
+from . import flags, gaps, prep, reduce_log
 from .tree import CHECKED, LIG, REC, Tree
 
 # prody, OpenBabel, reduce's pipes and redirect_stdout are all process-wide.
@@ -29,6 +29,8 @@ LOCK = threading.RLock()
 
 # ADFR's gap detection never fires (adapt/gaps.py); use the fixed copy
 gaps.install()
+# keep what reduce writes when a receptor is protonated (adapt/reduce_log.py)
+reduce_log.install()
 
 PDB_SUFFIXES = ('.pdb', '.ent', '.pdb.gz', '.ent.gz')
 
@@ -352,6 +354,12 @@ class Session(object):
             with open(p, 'rb') as fh:
                 files.append({'name': os.path.basename(p),
                               'md5': hashlib.md5(fh.read()).hexdigest()})
+        reduce = None
+        if kind == 'receptor' and reduce_log.LAST.get('stdout'):
+            out = reduce_log.LAST['stdout']
+            reduce = {'version': reduce_log.version(out),
+                      'chain_renames': reduce_log.chain_renames(reduce_log.LAST.get('taken')),
+                      'decisions': reduce_log.decisions(out)}
         entry = {'n': n, 'kind': kind, 'tab': self.current,
                  'at': datetime.datetime.now().isoformat(timespec='seconds'),
                  'folder': os.path.basename(folder), 'files': files,
@@ -360,6 +368,8 @@ class Session(object):
                                  self.profile._altlocsRes.items()),
                  'charges': flags.charges(self.tree()),
                  'log': log}
+        if reduce is not None:
+            entry['reduce'] = reduce
         self.saves.append(entry)
         self.flush()
         return {'save': n, 'files': files, 'log': log}

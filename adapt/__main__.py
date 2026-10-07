@@ -33,6 +33,11 @@ def main(argv=None):
     s.add_argument('--host', default='127.0.0.1',
                    help='address to bind (default 127.0.0.1: this machine only)')
     s.add_argument('--port', type=int, default=8766, help='0 picks a free port')
+    s.add_argument('--base-path', default=os.environ.get('ADAPT_BASE_PATH', ''),
+                   help='serve under this path prefix as well, e.g. /adapt when a '
+                        'proxy forwards /adapt/... unchanged (the page itself uses '
+                        'relative paths, so a proxy that strips the prefix needs '
+                        'nothing); default none, or $ADAPT_BASE_PATH')
     s.add_argument('--outdir', default=DEFAULT_OUTDIR,
                    help='where every session keeps its input, outputs and '
                         'session.json (default %(default)s); keep it on NFS, '
@@ -67,7 +72,12 @@ def main(argv=None):
     if os.path.realpath(os.path.expanduser(a.outdir)).startswith('/tmp'):
         p.error('--outdir must not be under /tmp; it is wiped')
     from .server import serve
-    serve(a.host, a.port, a.outdir)
+    from .server import clean_base_path
+    try:
+        base = clean_base_path(a.base_path)
+    except ValueError as e:
+        p.error(str(e))
+    serve(a.host, a.port, a.outdir, base)
     return 0
 
 

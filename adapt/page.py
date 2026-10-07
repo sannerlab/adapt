@@ -15,7 +15,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
 <script>try { const t = localStorage.getItem("adapt.theme") || localStorage.getItem("agfrweb.theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
 } catch (e) {}</script>
-<link rel="stylesheet" href="/static/app.css?v=__V_CSS__">
+<link rel="stylesheet" href="static/app.css?v=__V_CSS__">
 <header>
   <b>__APP__</b> <span class=dim>__APP_LONG__</span>
   <label class=btn id=openbtn title="Read a .pdb, .ent, .pdb.gz or .ent.gz file">
@@ -26,7 +26,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
   <span id=pdblabel class=dim>or drop a PDB file anywhere on the page</span>
   <span class=grow></span>
   <span id=envnote class=dim></span>
-  <a class=btn id=docslink href="/docs/index.html" target=_blank rel=noopener
+  <a class=btn id=docslink href="docs/index.html" target=_blank rel=noopener
      title="What __APP__ does, with worked examples">Docs</a>
   <button id=theme class=plain title="light / dark">&#9681;</button>
 </header>
@@ -60,8 +60,8 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
 <div id=busy hidden><span>working&hellip;</span></div>
 <footer class=dim>__APP__ __VERSION__ &middot; __COPYRIGHT__ &middot; computation by ADFR (AGFRgui's own code,
 ADCP distribution) &middot; viewer 3Dmol.js (Rego &amp; Koes, Bioinformatics 2015)</footer>
-<script src="/static/3Dmol-min.js?v=__V_3DMOL__"></script>
-<script src="/static/app.js?v=__V_JS__"></script>
+<script src="static/3Dmol-min.js?v=__V_3DMOL__"></script>
+<script src="static/app.js?v=__V_JS__"></script>
 """
 
 

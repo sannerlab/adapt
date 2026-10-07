@@ -50,8 +50,60 @@ where they are installed.</p>
   6ggd.pdb              the input, as loaded
   save_001_rec/         every save in its own numbered folder: nothing is overwritten
     6ggd_rec.pdbqt
+    6ggd_rec_H.pdb      the receptor with all of reduce's hydrogens, and its His/Asn/Gln choices
   save_002_lig/
     6ggd_lig.pdbqt
   session.json          ADFR version and source checksums, every edit in order, every file with its md5</pre>
 <p>See <a href="output.html">Writing the PDBQT files</a> for what the files and the record
 contain.</p>
+
+<h2 id="embed">Embedding ADapt</h2>
+<p>A program that starts ADapt, as ADCP_docking does, can open the page on a given entry or
+session, serve it under a path of its own, and fetch the files written.</p>
+<h3>Opening the page on an entry or a session</h3>
+<p>Next to the token, the page URL takes:</p>
+<table>
+<tr><th>Parameter</th><th>Effect</th></tr>
+<tr><td><code>pdb=6GGD</code></td><td>fetches the entry from the RCSB (or the cache) and opens
+it, as <b>Fetch from RCSB</b> does.</td></tr>
+<tr><td><code>session=&lt;id&gt;</code></td><td>opens a session the server already holds, for
+instance one made by a program through <code>/api/upload</code>.</td></tr>
+<tr><td><code>tab=Biomol%202</code></td><td>with either of the above, switches to that tab
+(<code>ASU</code>, <code>Biomol N</code>, …).</td></tr>
+</table>
+<pre>http://127.0.0.1:8766/?t=…&amp;pdb=6GGD&amp;tab=Biomol%202</pre>
+<p>Once a file is open, the address bar shows <code>session=</code> and <code>tab=</code>, so a
+reload, or the URL copied elsewhere, reopens the same session. Sessions live in the server's
+memory: after a restart, an old session id gets <i>no such session; load the PDB file again</i>
+(its folder and files are still on disk).</p>
+<h3>Requests</h3>
+<p>Every request carries the token, <code>t=…</code>.</p>
+<table>
+<tr><th>Request</th><th>Returns</th></tr>
+<tr><td><code>POST api/upload?name=6ggd.pdb</code>, the file as the body</td><td>a new session:
+its <code>session</code> id, tabs and tree.</td></tr>
+<tr><td><code>GET api/sessions</code></td><td>the sessions the server holds, newest first: id,
+PDB id, tabs, current tab, folder, number of saves.</td></tr>
+<tr><td><code>GET api/session?s=&lt;id&gt;</code></td><td>one session, as
+<code>api/upload</code> returns it, with the saves made so far and their files.</td></tr>
+<tr><td><code>POST api/save</code>, body
+<code>{"s": "&lt;id&gt;", "kind": "receptor"}</code> (or <code>"ligand"</code>)</td><td>writes the
+files of the current tab, as the save buttons do, and returns the save number and its
+files.</td></tr>
+<tr><td><code>GET api/download?s=&lt;id&gt;&amp;save=&lt;n&gt;&amp;file=&lt;name&gt;</code></td><td>one
+file of a save, e.g. <code>file=6ggd_rec_H.pdb</code>. Without <code>file</code>, a save of one
+file returns it, and a save of several returns a zip.</td></tr>
+</table>
+<h3>Under a path prefix</h3>
+<p>The page and its script use relative paths only (<code>api/…</code>,
+<code>static/…</code>, <code>docs/…</code>). A page served at <code>/adapt/?t=…</code> therefore
+sends its requests to <code>/adapt/api/…</code> by itself, and a proxy can forward
+<code>/adapt/…</code> to ADapt without rewriting anything. Two cases:</p>
+<ul>
+<li>A proxy that removes the prefix before forwarding needs nothing more; keep the slash in
+<code>/adapt/?t=…</code>.</li>
+<li>A proxy that forwards the full path: start ADapt with <code>--base-path /adapt</code> (or
+<code>ADAPT_BASE_PATH=/adapt</code>). ADapt then takes the prefix off each request, redirects
+<code>/adapt?t=…</code> to <code>/adapt/?t=…</code>, and prints its URL with the prefix. Requests
+without the prefix are still served.</li>
+</ul>

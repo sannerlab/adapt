@@ -11,7 +11,9 @@ makeAndSaveRecFile and makeAndSaveLigFile (pdbAnalyser.py, adcpsuite ADFR):
             ADFR's REMARK 850 AGFR provenance lines and atom lines, as
             runAGFR.saveReceptorAsPDBQT writes them, with ONE line added by
             ADapt: which biomolecule the receptor was built from (ADFR's
-            header writer has a commented-out placeholder for it).
+            header writer has a commented-out placeholder for it). Next to
+            it, <pdbid>_rec_H.pdb: the same header, then what reduce wrote
+            (its USER MOD lines and every atom with all of its hydrogens).
   ligand:   processBM(), then processLigands(mol.select('ligand')), one
             ADLigand per connected fragment, written with getPDBQTlines,
             with the same biomolecule line added after its "source" line and
@@ -55,6 +57,8 @@ def receptor(session, folder):
         raise Nothing('no atoms selected for the receptor')
     charges = flags.charges(session.tree())
     session.profile._customCharges = charges        # PDBAnalyserWidget.getCharges
+    from . import reduce_log
+    reduce_log.LAST.clear()
     processed = agfr.processReceptor(atoms, charges=charges)
     path = os.path.join(folder, session.profile._pdbid + '_rec.pdbqt')
     # runAGFR.saveReceptorAsPDBQT, plus the biomolecule line after "source"
@@ -64,7 +68,19 @@ def receptor(session, folder):
     _write_lines(lines, path)
     processed.filename = path
     agfr._processedReceptor = processed
-    return [path]
+    paths = [path]
+    # the receptor as reduce protonated it: all hydrogens, non-polar ones too,
+    # and reduce's choices (USER MOD lines), under the same provenance header
+    out = reduce_log.LAST.get('stdout')
+    if out:
+        pdb = os.path.join(folder, session.profile._pdbid + '_rec_H.pdb')
+        header = _with_biomolecule(session.profile.getPDBQTHeaderLines(), session.tree())
+        with open(pdb, 'w') as fh:
+            for l in header:
+                fh.write('%s\n' % l)
+            fh.write(out if out.endswith('\n') else out + '\n')
+        paths.append(pdb)
+    return paths
 
 
 def _with_biomolecule(lines, tree, more=()):

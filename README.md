@@ -125,8 +125,16 @@ The command line has no altloc option, so step 4 is a choice only the panel can 
 Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`, else `~/adapt_runs/`; `/tmp` is refused). The folder holds:
 
 - the input PDB, under its own name, because ADFR reads the PDB id from it to look up the known ligands;
-- `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten;
-- `session.json`, which records the input md5, the ADFR package version and the md5 of the ADFR sources that ran, the ADapt version and commit, every edit in order, and every file written with its md5.
+- `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten. A receptor save holds `<id>_rec.pdbqt` and `<id>_rec_H.pdb`: the receptor as `reduce` protonated it, with every hydrogen (non-polar ones included), the PDBQT's `REMARK 850` header, then `reduce`'s output verbatim, including its `USER  MOD` lines (each His/Asn/Gln decision: protonation, flip, score, category K/F/C/X). ADFR parses that output and discards it; `adapt/reduce_log.py` is a copy of ADFR's `protonate` that keeps it (the installed ADFR is not changed, and the PDBQT is unchanged);
+- `session.json`, which records the input md5, the ADFR package version and the md5 of the ADFR sources that ran, the ADapt version and commit, every edit in order, and every file written with its md5. A receptor save also records `reduce`: its version, its His/Asn/Gln `decisions` (`{"residue": "L:HIS:198:_", "decision": "no HD1", "score": 0.771, "category": "K", ...}`) and the `chain_renames` made for symmetry copies (`{"2": {"segment": "C", "chain": "A"}}`).
+
+## Embedding ADapt
+
+For a program that starts ADapt (as ADCP_docking does); details in `docs/start.html#embed`.
+
+- **URL parameters** next to `t`: `pdb=6GGD` fetches and opens an entry, `session=<id>` opens a session the server holds (e.g. made through `/api/upload`), `tab=Biomol%202` switches to a tab. After a load the address bar carries `session=` and `tab=`, so a reload reopens the session while the server runs.
+- **Requests** (all with `t=`): `POST api/upload?name=<file>` (file as body), `GET api/sessions` (the sessions held, newest first), `GET api/session?s=<id>`, `POST api/save` (`{"s": id, "kind": "receptor"|"ligand"}`), `GET api/download?s=<id>&save=<n>[&file=<name>]` (one file; without `file`, a several-file save is a zip).
+- **Path prefix.** The page and script use relative paths only, so a page served at `/adapt/?t=…` calls `/adapt/api/…` and a proxy needs no rewriting. For a proxy that forwards the full path, `--base-path /adapt` (or `$ADAPT_BASE_PATH`) strips the prefix, redirects `/adapt?…` to `/adapt/?…` and prints the URL with it; `/` still works.
 
 ## Where ADapt differs from AGFRgui (all fixes of GUI defects)
 
@@ -139,6 +147,7 @@ Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`
 - **Mutations and side-chain choices always take effect.** In AGFRgui, one made after a save was ignored until some checkbox changed.
 - **Clicking a label only focuses the viewer.** In AGFRgui, clicking the label of a partially checked category made every residue under it receptor while the checkbox still showed partial.
 - **The "unknown atom types" subtree is display-only.** Its residues are not user-checkable in AGFRgui either.
+- **The receptor is also written with all of `reduce`'s hydrogens and its His/Asn/Gln choices** (`<id>_rec_H.pdb`, see Outputs).
 - **Missing residues are shown.** ADFR's `PDBProfiler._gaps` never reported one: it tests `format_alignment(...).split('\n').count('-')`, which counts lines that are exactly `-`, so "missing residues" never appeared in AGFRgui. ADapt uses a copy of that function (`adapt/gaps.py`, the installed ADFR is not changed) with this test fixed and four defects it had been hiding: a chain with no missing C-terminus would have reported its whole sequence as one; modified residues and caps written as HETATM (MLZ, ALY, NH2) were reported missing; a missing end of a His tag could be dropped; a chain without SEQRES raised an error. Checked against the REMARK 465 records of ADFR's ten test PDBs (`tests/test_gaps.py`). The 3D markers are a port of AGFRgui's `addGeomsForGaps`.
 
 ## Known issues
@@ -157,7 +166,8 @@ What the files record:
 - **No `custom charge` REMARK from a Biomol tab.** That line is read from the asymmetric unit, so it is written only from ASU / "ASU and Biomol N" tabs; from a Biomol tab the charge is in the atom record only.
 - **ADFR's command line misreports `--ionCharges`.** The atom gets the requested charge, but its `custom charge` REMARK gives the default (`= 2.0000` for a zinc set to 1.5), because that line is read from the asymmetric unit, which the option does not change. ADapt sets the charge there too, so its REMARK reports the charge written (`tests/test_parity.py::test_ion_charge_matches_command_line`).
 - **`side chain completed` lists completions in chains the tab does not contain.**
-- **Symmetry copies get new chain identifiers** (`0`, `1`, …) in the receptor file; ADFR does not rename them back after `reduce`.
+- **Symmetry copies get new chain identifiers** (`0`, `1`, …) in the receptor files (PDBQT, and the atoms and `USER  MOD` lines of `_rec_H.pdb`); ADFR does not rename them back after `reduce`. ADapt records the renames in `session.json` (`reduce.chain_renames`).
+- **(reduce) In `_rec_H.pdb`, added hydrogens have atom serial number 0**, marked `new` after column 80 (flipped atoms `flip`); renumber if a program needs unique serials.
 - **A ligand's atom records say chain `A`** whatever chain it came from, and its source line is `REMARK 850 source .pdb`, with no file name. The coordinates are correct, and ADapt records the true origin in `REMARK 850 AGFR ligand from B:EYB:402:_`.
 - **(ADapt) Some choices are in the session record only:** which hetero groups were kept, and ADapt's version, are in `session.json`, not in the PDBQT header.
 
@@ -206,6 +216,11 @@ There is no pytest in the shared env; `run_tests.py` is a small runner. Outputs 
   network tests skip when the machine has no route to the RCSB;
 - missing residues against REMARK 465 for the ten test PDBs, the 3D markers, and that ADFR's
   own `_gaps` reports none.
+- the protonated receptor PDB (same header and heavy atoms as the PDBQT, every polar H of the
+  PDBQT, `reduce`'s decisions and chain renames in `session.json`), and that the `protonate`
+  copy differs from ADFR's only by its marked lines;
+- opening a session from elsewhere, and serving under `/adapt/` through a proxy that rewrites
+  nothing (`--base-path`, relative paths).
 
 ## License
 

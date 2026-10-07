@@ -85,6 +85,40 @@ completion queued in the file, including chains not in the current tab (chain A 
 Biomol 2 is chain B). The <i>altlocs</i> lines list only residues in the receptor, with the
 location used. This is how ADFR writes the header.</div>
 
+<h2 id="pdb">The protonated receptor (PDB)</h2>
+<p>Next to the PDBQT, the same save writes <code>&lt;id&gt;_rec_H.pdb</code>: the receptor as
+<code>reduce</code> protonated it, before ADFR merges the non-polar hydrogens and converts to
+PDBQT. It holds every hydrogen, polar and non-polar, at the positions <code>reduce</code> chose,
+and the same heavy atoms as the PDBQT. It is useful where a full-atom receptor is needed, and as
+the record of <code>reduce</code>'s choices for histidines, asparagines and glutamines. For
+1A3R (tab <i>ASU and Biomol 1</i>):</p>
+<pre>REMARK 850 AGFR version 1.2dev
+REMARK 850 AGFR source 1a3r.pdb
+REMARK 850 AGFR biomolecule ASU and Biomol 1: chains H L P
+REMARK 850 AGFR protonated using reduce
+REMARK 850 AGFR partial charge assigned using OpenBabel Gasteiger model
+REMARK 850 AGFR end
+USER  MOD reduce.3.23.130521 H: found=0, std=0, add=3340, rem=0, adj=160
+   …
+USER  MOD Set 1.1: L 198 HIS     :     no HD1:sc=   0.771  K(o=1.6,f=-4.4)
+USER  MOD Set 3.1: L 190 ASN     :FLIP  amide:sc=   0.105  F(o=-0.34,f=0.18)
+   …
+ATOM      1  N   ASP L   1      79.656  63.382 102.827  1.00 46.17         A N
+   …
+ATOM      0  H1  ASP L   1      78.913  63.312 103.312  1.00 46.17         A H   new</pre>
+<p>The file starts with the PDBQT's <code>REMARK 850</code> header, up to
+<code>REMARK 850 AGFR end</code>; everything after it is <code>reduce</code>'s output, unchanged.
+Its <code>USER  MOD</code> lines give, for each histidine, asparagine and glutamine whose
+hydrogens or orientation <code>reduce</code> decided, the decision (<code>no HD1</code>: protonated
+on NE2 only; <code>FLIP</code>: the amide or ring was flipped), a score, and a category:
+<code>K</code> keep, <code>F</code> flip, <code>C</code> clash, <code>X</code> uncertain. The
+same decisions are recorded in <code>session.json</code> (below).</p>
+<div class="note"><b>Written as <code>reduce</code> writes it.</b> The hydrogens it added have the
+atom serial number <code>0</code> and the word <code>new</code> after column 80; flipped atoms carry
+<code>flip</code>. Chain identifiers are those <code>reduce</code> saw: in an assembly built by
+symmetry, the copies are renamed <code>0</code>, <code>1</code>, …, as in the PDBQT
+(<a href="known-issues.html">Known issues</a>).</div>
+
 <h2>The ligand</h2>
 <p><b>ligand PDBQT</b> takes the ligand atoms of the current tab. Each connected fragment becomes
 one ligand, prepared by ADFR: hydrogens added and Gasteiger charges assigned with Open Babel
@@ -105,7 +139,9 @@ Open Babel conversion (AGFRgui's file is the same). ADapt's
 <code>REMARK 850 AGFR ligand from B:EYB:402:_</code> line records where it came from.</div>
 <p>The files are named as AGFRgui names them: <code>&lt;id&gt;_rec.pdbqt</code> and
 <code>&lt;id&gt;_lig.pdbqt</code>, or <code>&lt;id&gt;_lig_001.pdbqt</code>, … when there are
-several fragments.</p>
+several fragments. ADapt adds <code>&lt;id&gt;_rec_H.pdb</code> to each receptor save. The
+browser downloads the receptor PDBQT, or the ligand file (a zip when there are several);
+<i>Files written</i> has a link for every file.</p>
 
 <h2>The session record</h2>
 <p>Every loaded file has a session folder (see <a href="start.html#where">Getting started</a>). Its
@@ -117,7 +153,9 @@ several fragments.</p>
 <li>every edit in order: tab switches, checkboxes, alternate locations, charges, side-chain
 choices, mutations;</li>
 <li>every save: its folder, the files and their md5, and the mutations, alternate locations and
-charges it was made with.</li>
+charges it was made with;</li>
+<li>for a receptor save, <code>reduce</code>'s version and decisions, and the chain renames made
+for it.</li>
 </ul>
 <pre>"events": [
   {"what": "tab",    "name": "Biomol 2", "at": "2026-09-29T14:30:44"},
@@ -125,6 +163,26 @@ charges it was made with.</li>
   {"what": "check",  "key": "B:EYB:402:_", "column": "lig", "state": "checked", ...},
   {"what": "mutate", "key": "B:SER:96:_",  "choice": "ILE", ...}
 ]</pre>
+<p>The <code>reduce</code> record of a receptor save, for the 1A3R receptor above:</p>
+<pre>"reduce": {
+  "version": "reduce.3.23.130521",
+  "chain_renames": {},
+  "decisions": [
+    {"residue": "L:HIS:198:_", "set": "Set 1.1", "decision": "no HD1", "score": 0.771,
+     "category": "K", "detail": "o=1.6,f=-4.4"},
+    {"residue": "L:ASN:190:_", "set": "Set 3.1", "decision": "FLIP  amide", "score": 0.105,
+     "category": "F", "detail": "o=-0.34,f=0.18"},
+    ...
+  ]
+}</pre>
+<p><code>decisions</code> has one entry per histidine, asparagine and glutamine
+<code>USER  MOD</code> line of <code>_rec_H.pdb</code>, with the residue written
+<code>chain:name:number:insertion code</code> as in the REMARKs. A residue
+<code>reduce</code> did not adjust (a <code>NoAdj-H</code> line, as for a histidine bound to a
+metal) is kept as <code>{"raw": "&lt;the line&gt;"}</code>. <code>chain_renames</code> maps each chain identifier
+given to a symmetry copy back to its segment and original chain, for instance
+<code>"2": {"segment": "C", "chain": "A"}</code> in 1H6W's Biomol 1; it is empty when nothing was
+renamed.</p>
 
 <h2 id="check">Checking against ADFR's command line</h2>
 <p>For the choices ADFR's command line can express, the receptor ADapt writes is byte-identical to

@@ -169,6 +169,20 @@ from the asymmetric unit, which the option does not change. ADapt sets the charg
 header reports the charge actually written. The atom records of the two files are identical (a test
 checks this).</div>
 
+<h2 id="reduce">reduce's choices: the receptor PDB</h2>
+<p>The <code>protonated using reduce</code> line says that <code>reduce</code> added the
+hydrogens, not what it decided. For each histidine it chooses the protonation (HD1, HE2 or both),
+and it may flip the side chain of a histidine, asparagine or glutamine by 180°. Those choices are
+in the <code>&lt;id&gt;_rec_H.pdb</code> written with every receptor: its header is the PDBQT's,
+followed by <code>reduce</code>'s own <code>USER  MOD</code> lines and every atom, hydrogens
+included:</p>
+<pre>USER  MOD reduce.3.23.130521 H: found=0, std=0, add=3340, rem=0, adj=160
+USER  MOD Set 1.1: L 198 HIS     :     no HD1:sc=   0.771  K(o=1.6,f=-4.4)
+USER  MOD Set 3.1: L 190 ASN     :FLIP  amide:sc=   0.105  F(o=-0.34,f=0.18)</pre>
+<p>The same decisions, and the chain renames made for <code>reduce</code> in an assembly built by
+symmetry, are in the save's <code>reduce</code> entry in <code>session.json</code>. See
+<a href="output.html#pdb">the protonated receptor</a>.</p>
+
 <h2>What the header does not record</h2>
 <p>Some facts about a file are not in its header. Every ADapt session keeps them in its
 <code>session.json</code> (see <a href="output.html">Writing the PDBQT files</a>):</p>
@@ -178,7 +192,9 @@ were chosen);</li>
 <li>the version and git commit of ADapt, the <code>adfr</code> package version, and checksums of
 the ADFR source files that ran;</li>
 <li>the input file's checksum, and where it came from (an upload, or an RCSB URL);</li>
-<li>every edit, in order, and every file written, with its checksum.</li>
+<li>every edit, in order, and every file written, with its checksum;</li>
+<li><code>reduce</code>'s version and its His/Asn/Gln decisions, which are also in
+<code>_rec_H.pdb</code>.</li>
 </ul>
 <div class="pn"><a href="output.html">&larr; Writing the PDBQT files</a><a href="differences.html">ADapt and AGFRgui &rarr;</a></div>
 <footer class="page">ADapt documentation. Author: Michel Sanner, PhD. Copyright &copy; 2026.

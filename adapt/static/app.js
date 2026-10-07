@@ -62,7 +62,7 @@ function log(lines){
 async function openFile(file){
   if(!file) return;
   status('reading ' + esc(file.name) + '&hellip;');
-  const d = await api('/api/upload?name=' + encodeURIComponent(file.name), null, file);
+  const d = await api('api/upload?name=' + encodeURIComponent(file.name), null, file);
   if(!d.error) loaded(d);
 }
 
@@ -75,7 +75,7 @@ $('fetchform').addEventListener('submit', async e => {
     return;
   }
   status('fetching ' + esc(code) + ' from the RCSB&hellip;');
-  const d = await api('/api/fetch?code=' + encodeURIComponent(code), {});
+  const d = await api('api/fetch?code=' + encodeURIComponent(code), {});
   if(!d.error) loaded(d);
 });
 
@@ -84,6 +84,7 @@ function loaded(d){
   $('pdblabel').textContent = d.label;
   $('folder').textContent = 'session folder: ' + (d.folder_display || d.folder);
   $('saves').innerHTML = '';
+  for(const sv of (d.saves || [])) listSave(sv);
   showTab(d);
   status('loaded ' + esc(d.pdbid) + ': ' + d.tabs.length + ' biomolecule tab'
          + (d.tabs.length === 1 ? '' : 's')
@@ -131,15 +132,25 @@ function renderTabs(){
     if(name === TAB) b.className = 'on';
     b.onclick = async () => {
       if(name === TAB) return;
-      const d = await api('/api/tab', {s: S.session, tab: name});
+      const d = await api('api/tab', {s: S.session, tab: name});
       if(!d.error) showTab(d);
     };
     nav.appendChild(b);
   }
 }
 
+/* the address bar names the session and tab shown, so a reload (or a link)
+   reopens them while the server runs */
+function remember(){
+  try {
+    const P = new URLSearchParams(location.search);
+    P.set('session', S.session); P.set('tab', TAB); P.delete('pdb');
+    history.replaceState(null, '', '?' + P.toString());
+  } catch(e) {}
+}
 function showTab(d){
   TAB = d.tab;
+  remember();
   renderTabs();
   TREE = d.tree;
   renderTree();
@@ -230,7 +241,7 @@ function params(cell, n){
       lab.innerHTML = '<input type=radio name=alt' + n.id + (i === n.altloc.current ? ' checked' : '')
         + '> ' + esc(a) + ' ' + n.altloc.occ[i].toFixed(2);
       lab.firstChild.onchange = async () => {
-        const d = await api('/api/altloc', {s: S.session, node: n.id, index: i});
+        const d = await api('api/altloc', {s: S.session, node: n.id, index: i});
         if(!d.error){ n.altloc.current = i; applyView(d); focus(n.id); }
         else renderTree();
       };
@@ -243,7 +254,7 @@ function params(cell, n){
     inp.value = n.charge.toFixed(2);
     inp.title = 'charge written for this ion (AGFR default shown)';
     inp.onchange = async () => {
-      const d = await api('/api/charge', {s: S.session, node: n.id, value: parseFloat(inp.value)});
+      const d = await api('api/charge', {s: S.session, node: n.id, value: parseFloat(inp.value)});
       if(!d.error){ n.charge = d.value; inp.value = d.value.toFixed(2); applyView(d);
                     status('charge of ' + esc(n.label) + ' set to ' + d.value.toFixed(2)); }
       else inp.value = n.charge.toFixed(2);
@@ -288,7 +299,7 @@ $('tree').addEventListener('click', async e => {
   if(e.target.matches('input.cb')){
     e.preventDefault();          // the server decides the new state
     const col = e.target.dataset.col;
-    const d = await api('/api/click', {s: S.session, node: id, col: col});
+    const d = await api('api/click', {s: S.session, node: id, col: col});
     if(!d.error){ applyView(d); }
     return;
   }
@@ -331,7 +342,7 @@ async function openMenu(n, x, y){
              ['Include as is', !complete, () => sidechain(n, 'asis')]];
     m.innerHTML = '<div class=head>' + esc(n.label.split(' ')[0]) + '</div>';
   } else if(n.menu === 'mutate'){
-    const d = await api('/api/mutateopts?s=' + S.session + '&node=' + n.id);
+    const d = await api('api/mutateopts?s=' + S.session + '&node=' + n.id);
     if(d.error) return;
     m.innerHTML = '<div class=head>mutate ' + esc(n.label.split(' ')[0]) + ' to</div>';
     items = d.names.map(name => {
@@ -353,11 +364,11 @@ async function openMenu(n, x, y){
 }
 
 async function sidechain(n, act){
-  const d = await api('/api/sidechain', {s: S.session, node: n.id, act: act});
+  const d = await api('api/sidechain', {s: S.session, node: n.id, act: act});
   if(!d.error){ TREE = d.tree; renderTree(); applyView(d); }
 }
 async function mutate(n, choice){
-  const d = await api('/api/mutate', {s: S.session, node: n.id, choice: choice});
+  const d = await api('api/mutate', {s: S.session, node: n.id, choice: choice});
   if(!d.error){ TREE = d.tree; renderTree(); applyView(d);
                 status(esc(NODE[n.id] ? NODE[n.id].label : n.label)); }
 }
@@ -375,7 +386,7 @@ function applyView(d){
 }
 
 async function show(what, scheme){
-  const d = await api('/api/select', {s: S.session, what: what});
+  const d = await api('api/select', {s: S.session, what: what});
   if(d.error) return;
   HL = null; restyle();
   highlight(d.indices, scheme, true);
@@ -385,16 +396,29 @@ $('showrec').onclick = () => show('receptor', 'greenCarbon');
 $('showlig').onclick = () => show('ligand', 'greenCarbon');
 $('showother').onclick = () => show('other', 'orangeCarbon');
 
+/* one line per save under "Files written", a download link per file. URLs are
+   relative to the page, so ADapt works under a path prefix (e.g. /adapt/). */
+function downloadUrl(save, file){
+  return 'api/download?s=' + encodeURIComponent(S.session) + '&save=' + save
+    + (file ? '&file=' + encodeURIComponent(file) : '') + '&t=' + encodeURIComponent(T);
+}
+function listSave(sv){
+  const li = document.createElement('li');
+  li.innerHTML = '#' + sv.save + ' ' + esc(sv.kind) + ' (' + esc(sv.tab) + '): '
+    + sv.files.map(f => esc(f.name) + ' <a href="' + downloadUrl(sv.save, f.name) + '">download</a>')
+              .join(' &middot; ')
+    + (sv.files.length > 1 && sv.kind === 'ligand'
+       ? ' &middot; <a href="' + downloadUrl(sv.save) + '">all (zip)</a>' : '');
+  $('saves').appendChild(li);
+}
 async function save(kind){
-  const d = await api('/api/save', {s: S.session, kind: kind});
+  const d = await api('api/save', {s: S.session, kind: kind});
   if(d.error) return;
   applyView(d);
-  const url = '/api/download?s=' + S.session + '&save=' + d.save + '&t=' + encodeURIComponent(T);
-  const li = document.createElement('li');
-  li.innerHTML = '#' + d.save + ' ' + esc(kind) + ' (' + esc(TAB) + '): '
-    + d.files.map(f => esc(f.name)).join(', ')
-    + ' &middot; <a href="' + url + '">download</a>';
-  $('saves').appendChild(li);
+  listSave({save: d.save, kind: kind, tab: TAB, files: d.files});
+  // the receptor downloads its PDBQT (the protonated PDB stays a link);
+  // ligands download their one file, or all fragments as a zip
+  const url = kind === 'receptor' ? downloadUrl(d.save, d.files[0].name) : downloadUrl(d.save);
   const a = document.createElement('a');
   a.href = url; a.download = '';
   document.body.appendChild(a); a.click(); a.remove();
@@ -415,7 +439,7 @@ function viewer(){
 
 async function loadStructure(tab){
   if(!STRUCT[tab]){
-    const d = await api('/api/structure?s=' + S.session + '&tab=' + encodeURIComponent(tab));
+    const d = await api('api/structure?s=' + S.session + '&tab=' + encodeURIComponent(tab));
     if(d.error) return;
     STRUCT[tab] = d;
   }
@@ -528,7 +552,7 @@ function highlight(indices, scheme, zoom){
 }
 
 async function focus(id){
-  const d = await api('/api/focus?s=' + S.session + '&node=' + id, null, null, true);   // view only: quiet
+  const d = await api('api/focus?s=' + S.session + '&node=' + id, null, null, true);   // view only: quiet
   if(d.error) return;
   HL = null; restyle();
   highlight(d.indices, 'greenCarbon', true);
@@ -550,7 +574,7 @@ async function rotamer(id){
 async function rotamerOnce(id){
   const n = NODE[id];
   if(!n) return;
-  const d = await api('/api/rotamer?s=' + S.session + '&node=' + id + '&choice=' + n.rotamer.current,
+  const d = await api('api/rotamer?s=' + S.session + '&node=' + id + '&choice=' + n.rotamer.current,
                       null, null, true);
   if(d.error) return;
   const v = viewer();
@@ -571,7 +595,30 @@ $('theme').onclick = () => {
   if(VIEW){ VIEW.setBackgroundColor(dark() ? '#12151c' : 'white'); VIEW.render(); }
 };
 
-api('/api/status').then(d => {
+/* Opened with ?session=<id> (a session made elsewhere, e.g. by a tool calling
+   /api/upload), or ?pdb=<ID> (fetched from the RCSB), and optionally
+   &tab=<name> (ASU, Biomol 1, ...): show it straight away. */
+(async () => {
+  const P = new URLSearchParams(location.search);
+  const sid = P.get('session'), code = (P.get('pdb') || '').trim(), tab = P.get('tab');
+  let d = null;
+  if(sid){
+    status('opening session ' + esc(sid) + '&hellip;');
+    d = await api('api/session?s=' + encodeURIComponent(sid));
+  } else if(code){
+    $('pdbcode').value = code.toUpperCase();
+    status('fetching ' + esc(code.toUpperCase()) + ' from the RCSB&hellip;');
+    d = await api('api/fetch?code=' + encodeURIComponent(code.toUpperCase()), {});
+  }
+  if(!d || d.error) return;
+  loaded(d);
+  if(tab && tab !== d.tab && (d.tabs || []).includes(tab)){
+    const t = await api('api/tab', {s: S.session, tab: tab});
+    if(!t.error) showTab(t);
+  }
+})();
+
+api('api/status').then(d => {
   if(d.error) return;
   const env = d.environment || {};
   $('envnote').innerHTML = (d.missing && d.missing.length)
