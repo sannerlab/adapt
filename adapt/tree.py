@@ -387,6 +387,18 @@ def _in_tree(node, tree):
     return node in tree.roots
 
 
+def modres_parent(profile, res):
+    """The standard residue a modified residue derives from, as its MODRES
+    record gives it (resnum written with the insertion code, as prody keeps it)."""
+    num = '%d%s' % (res.getResnum(), res.getIcode().strip())
+    for poly in (profile._receptor.pdbHeader or {}).get('polymers', []):
+        if poly.chid == res.getChid():
+            for resname, resnum, base, _ in poly.modified or ():
+                if resname == res.getResname() and resnum.strip() == num:
+                    return base
+    raise ValueError('no MODRES record for %s' % getResidueKeyAlt(res))
+
+
 def mutate_options(tree, node):
     """The entries of openResMenu's mutate menu for a residue node."""
     profile = tree.profile
@@ -395,7 +407,11 @@ def mutate_options(tree, node):
     mutated = ' -> ' in node.label
     parent = node.parent.label
     if parent == 'modified':
-        baseResName, allKnown, mutResName = profile._modifiedRes[getResidueKeyAlt(res)]
+        # AGFRgui reads profile._modifiedRes here, which only ADFR's commented-out
+        # _classify2 ever built, so the menu raised AttributeError. The parent
+        # residue is the one the file's MODRES record names for this residue.
+        baseResName = modres_parent(profile, res)
+        allKnown = not res.getFlags('unsre').any()
         if allKnown and mutated:
             names = [resname, 'Base Res: %s' % baseResName]
         else:

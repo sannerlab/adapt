@@ -172,3 +172,24 @@ def test_ligand_records_its_biomolecule():
     found = sorted(o for name in names for o in
                    origins(read(os.path.join(s.folder, 'save_%03d_lig' % d['save'], name))))
     check(found == ['A:EYB:402:_', 'B:EYB:402:_'], found)
+
+
+def test_modified_residue_menu():
+    """The mutate menu of a modified residue starts with its parent residue
+    (MODRES). It raised AttributeError: it read profile._modifiedRes, which
+    nothing builds. Choosing the parent writes it; choosing the residue
+    itself undoes that."""
+    s = session('5fq2.pdb', 'modmenu')
+    mlz = find(s.tree(), parent='modified', key='B:MLZ:505:_')[0]
+    o = s.mutate_options(mlz.id)
+    check(o['names'][0] == 'Base Res: LYS' and 'MLZ' not in o['names'], o['names'][:3])
+    s.mutate(mlz.id, 'Base Res: LYS')
+    check(' -> LYS' in mlz.label, mlz.label)
+    check(s.mutate_options(mlz.id)['names'][:2] == ['MLZ', 'Base Res: LYS'], 'undo offered')
+    d = s.save('receptor')
+    rec = read(os.path.join(s.folder, 'save_%03d_rec' % d['save'], d['files'][0]['name']))
+    b505 = [l for l in rec.decode().splitlines() if l.startswith(('ATOM', 'HETATM'))
+            and l[21] == 'B' and l[22:26] == ' 505']
+    check(b505 and all(l[17:20] == 'LYS' for l in b505), 'B 505 written as LYS')
+    s.mutate(mlz.id, 'MLZ')
+    check(mlz.label == "MLZ'505" and mlz.key not in s.profile._resToMutate, mlz.label)
