@@ -27,6 +27,7 @@
 </ul>
 <h4>Reference</h4><ul>
 <li><a class="here" href="differences.html">ADapt and AGFRgui</a></li>
+<li><a href="known-issues.html">Known issues</a></li>
 </ul>
 </nav>
 <main>
@@ -75,22 +76,12 @@ receptor ADapt writes.</li>
 best-scoring rotamer is built.</li>
 </ul>
 
-<h2>Known limitations</h2>
-<p>These are ADFR's behaviour, which ADapt shares:</p>
-<ul>
-<li><b>Symmetry copies</b> follow their original chain for side-chain completion and mutations,
-but not for receptor/ligand checkboxes or alternate locations. In the receptor file they get new
-chain identifiers. See <a href="case-biomolecule.html">Biological assembly</a>.</li>
-<li><b>Tied alternate locations</b> (equal occupancy) get a default that varies from run to run.
-See <a href="case-altlocs.html">Alternate locations</a>.</li>
-<li><b>A missing stretch whose ends are within 3.5 Å</b> is not reported. See
-<a href="case-missing-residues.html">Missing residues</a>.</li>
-<li><b>A ligand file</b> labels its chain A whatever the ligand's chain. See
-<a href="output.html">Writing the PDBQT files</a>.</li>
-<li><b>Atoms outside the AutoDock 4.1 types</b> are left out, with no substitution. See
-<a href="case-metals.html#unknown">unsupported atoms</a>.</li>
-</ul>
-<div class="pn"><a href="provenance.html">&larr; Provenance in the PDBQT files</a><span></span></div>
+<h2>Known issues</h2>
+<p>ADapt shares the rest of ADFR's behaviour, including its known issues: symmetry copies that do
+not follow every choice, tied alternate locations whose default varies between runs, and the
+provenance records' gaps. All of them are listed, with their effects and where each is explained,
+on <a href="known-issues.html">Known issues</a>.</p>
+<div class="pn"><a href="provenance.html">&larr; Provenance in the PDBQT files</a><a href="known-issues.html">Known issues &rarr;</a></div>
 <footer class="page">ADapt documentation. Author: Michel Sanner, PhD. Copyright &copy; 2026.
 Every screenshot is of ADapt itself, made by <code>docs/make_screenshots.py</code>; the chemistry
 is ADFR's own code (ADCP distribution).</footer>

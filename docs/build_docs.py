@@ -32,6 +32,7 @@ PAGES = [
     ('output', 'Writing the PDBQT files', 'Results'),
     ('provenance', 'Provenance in the PDBQT files', 'Results'),
     ('differences', 'ADapt and AGFRgui', 'Reference'),
+    ('known-issues', 'Known issues', 'Reference'),
 ]
 
 TEMPLATE = """<!doctype html>

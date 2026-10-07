@@ -141,14 +141,35 @@ Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`
 - **The "unknown atom types" subtree is display-only.** Its residues are not user-checkable in AGFRgui either.
 - **Missing residues are shown.** ADFR's `PDBProfiler._gaps` never reported one: it tests `format_alignment(...).split('\n').count('-')`, which counts lines that are exactly `-`, so "missing residues" never appeared in AGFRgui. ADapt uses a copy of that function (`adapt/gaps.py`, the installed ADFR is not changed) with this test fixed and four defects it had been hiding: a chain with no missing C-terminus would have reported its whole sequence as one; modified residues and caps written as HETATM (MLZ, ALY, NH2) were reported missing; a missing end of a His tag could be dropped; a chain without SEQRES raised an error. Checked against the REMARK 465 records of ADFR's ten test PDBs (`tests/test_gaps.py`). The 3D markers are a port of AGFRgui's `addGeomsForGaps`.
 
-## Faithful, but worth knowing (ADFR behaviour, not changed)
+## Known issues
 
-- The rotamer dropdown is a **preview**. When the receptor is written, `mutateResidues` builds the best-scoring rotamer, as in AGFRgui.
-- A stretch listed as missing whose neighbouring residues are within 3.5 A (C to N) is not shown: ADFR treats the chain as continuous there, and its source names the case it was written for (1JFF GLY34-HIS61, 2.68 A).
-- **The default alternate location is not reproducible when occupancies tie.** ADFR picks the location with the most atoms, then the highest occupancy, and breaks a tie by taking the last tied letter in `set` order, which Python varies from run to run (hash randomisation). 1FV1 D:SER19 (A 0.50 / B 0.50) defaults to A in some runs and B in others, and so does the written receptor. Ties are common: all 7 altloc residues of 1FV1, 2 of 4A1X's 20, 2 of 5HHT's 33, 4 of 6BHG's 19. The `REMARK 850 AGFR altlocs` line records the letter that was used; choose tied residues explicitly when it matters. This is ADFR's behaviour (agfr and AGFRgui alike) and is not changed here.
-- The `agfr` / `agfrgui` launcher scripts pass arguments as an unquoted `$@`, so any option value containing spaces (`--heteroToKeep "chid B resnum 402"`) is split and rejected. Call `python -m ADFR.bin.runAGFR` directly for those.
-- ADFR's command line misreports an ion charge set with `--ionCharges`: the atom gets the requested charge, but its `custom charge` REMARK gives the default (e.g. `= 2.0000` for a zinc set to 1.5), because that line is read from the asymmetric unit, which the option does not change. ADapt sets the charge there too, so its REMARK reports the charge written (`tests/test_parity.py::test_ion_charge_matches_command_line`).
-- The `custom charge` REMARK is written from the ASU molecule's flags, so it is absent when the ion was added to the receptor in another biomolecule's tab. The atom still carries the charge.
+All of them, with details and links, are in the docs: `docs/known-issues.html`. Unless marked
+ADapt, they are ADFR's behaviour, shared by `agfr` and AGFRgui.
+
+What is written:
+- **Symmetry copies do not follow every choice.** They follow mutations and side-chain completion, but not receptor/ligand checkboxes or alternate locations; they keep the defaults (measured on 1HHP).
+- **Tied alternate locations.** With equal occupancies the default location varies from run to run (Python's set order), so one PDB file can give different receptors. All 7 altloc residues of 1FV1 tie, as do 2 of 4A1X's 20, 2 of 5HHT's 33 and 4 of 6BHG's 19. Choose them explicitly; the `altlocs` REMARK records the one used.
+- **Unsupported atom types** (Cu, Na, K, …) are left out of the receptor, with no substitution.
+- **Bromine's default manual charge is +1** in ADFR's table; a bromide is −1.
+- **The rotamer drop-down is a preview.** `mutateResidues` always builds the best-scoring rotamer, as in AGFRgui.
+
+What the files record:
+- **No `custom charge` REMARK from a Biomol tab.** That line is read from the asymmetric unit, so it is written only from ASU / "ASU and Biomol N" tabs; from a Biomol tab the charge is in the atom record only.
+- **ADFR's command line misreports `--ionCharges`.** The atom gets the requested charge, but its `custom charge` REMARK gives the default (`= 2.0000` for a zinc set to 1.5), because that line is read from the asymmetric unit, which the option does not change. ADapt sets the charge there too, so its REMARK reports the charge written (`tests/test_parity.py::test_ion_charge_matches_command_line`).
+- **`side chain completed` lists completions in chains the tab does not contain.**
+- **Symmetry copies get new chain identifiers** (`0`, `1`, …) in the receptor file; ADFR does not rename them back after `reduce`.
+- **A ligand file loses its origin.** Its chain is labelled `A` whatever chain it came from, and its source line is `REMARK 850 source .pdb`, with no file name. The coordinates are correct.
+- **(ADapt) Some choices are in the session record only:** which hetero groups were kept, the ligand's origin, and ADapt's version are in `session.json`, not in the PDBQT header.
+
+What is shown:
+- **A gap whose ends meet is not shown.** A stretch listed as missing whose neighbouring residues are within 3.5 Å (C to N) is treated as continuous; ADFR's source names the case it was written for (1JFF GLY34-HIS61, 2.68 Å).
+- **Symmetry copies are not in the tree**; they are drawn translucent.
+
+Input and tools:
+- **PDB format only.** Entries the RCSB distributes only as mmCIF cannot be opened.
+- **The PDB id comes from the file name.** The id selects the known ligands of the entry; name files by their id.
+- **The `agfr` / `agfrgui` launchers split option values containing spaces** (unquoted `$@`). Call `python -m ADFR.bin.runAGFR` directly for those.
+- **(ADapt) Needs the ADCP distribution's `adcpsuite` environment** (Python 3.7).
 
 ## Documentation
 
