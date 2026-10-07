@@ -53,11 +53,6 @@ the <code>USER  MOD</code> lines of <code>_rec_H.pdb</code>. ADapt records each 
 <code>session.json</code> (<code>chain_renames</code>).</td><td>ADFR</td><td><a
 href="case-biomolecule.html">Biological assembly</a>, <a href="output.html#pdb">the protonated
 receptor</a></td></tr>
-<tr><td><b>Added hydrogens have atom number 0</b></td><td>In <code>_rec_H.pdb</code>, the
-hydrogens <code>reduce</code> added have the serial number <code>0</code> and the word
-<code>new</code> after column 80 (flipped atoms: <code>flip</code>). Renumber the atoms if a
-program needs unique serial numbers.</td><td><code>reduce</code></td><td><a
-href="output.html#pdb">The protonated receptor</a></td></tr>
 <tr><td><b>A ligand's atom records say chain A</b></td><td>The atom records of a ligand file
 label the chain <code>A</code> whatever chain the ligand came from, and its <code>source</code>
 line has no file name (<code>REMARK 850 source .pdb</code>). The coordinates are right, and ADapt

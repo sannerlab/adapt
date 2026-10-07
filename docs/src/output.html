@@ -72,17 +72,21 @@ USER  MOD Set 3.1: L 190 ASN     :FLIP  amide:sc=   0.105  F(o=-0.34,f=0.18)
    …
 ATOM      1  N   ASP L   1      79.656  63.382 102.827  1.00 46.17         A N
    …
-ATOM      0  H1  ASP L   1      78.913  63.312 103.312  1.00 46.17         A H   new</pre>
+ATOM      9  H1  ASP L   1      78.913  63.312 103.312  1.00 46.17         A H   new</pre>
 <p>The file starts with the PDBQT's <code>REMARK 850</code> header, up to
-<code>REMARK 850 AGFR end</code>; everything after it is <code>reduce</code>'s output, unchanged.
+<code>REMARK 850 AGFR end</code>; everything after it is <code>reduce</code>'s output, with the
+atoms numbered in order (below).
 Its <code>USER  MOD</code> lines give, for each histidine, asparagine and glutamine whose
 hydrogens or orientation <code>reduce</code> decided, the decision (<code>no HD1</code>: protonated
 on NE2 only; <code>FLIP</code>: the amide or ring was flipped), a score, and a category:
 <code>K</code> keep, <code>F</code> flip, <code>C</code> clash, <code>X</code> uncertain. The
 same decisions are recorded in <code>session.json</code> (below).</p>
-<div class="note"><b>Written as <code>reduce</code> writes it.</b> The hydrogens it added have the
-atom serial number <code>0</code> and the word <code>new</code> after column 80; flipped atoms carry
-<code>flip</code>. Chain identifiers are those <code>reduce</code> saw: in an assembly built by
+<div class="note"><b>Written as <code>reduce</code> writes it, numbered by ADapt.</b>
+<code>reduce</code> gives every hydrogen it adds the atom serial number <code>0</code>; ADapt
+numbers all atoms 1, 2, … in file order, so each has its own number. That is the only change to
+<code>reduce</code>'s text. From the 100,000th atom on the number is hexadecimal
+(<code>186a0</code>, …), as ProDy writes it. The added hydrogens keep the word <code>new</code>
+after column 80; flipped atoms carry <code>flip</code>. Chain identifiers are those <code>reduce</code> saw: in an assembly built by
 symmetry, the copies are renamed <code>0</code>, <code>1</code>, …, as in the PDBQT
 (<a href="known-issues.html">Known issues</a>).</div>
 

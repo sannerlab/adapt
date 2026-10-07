@@ -157,6 +157,21 @@ _DECISION = re.compile(
     r'(?:\s+(?P<category>[KCXF])\((?P<detail>[^)]*)\))?')
 
 
+def renumbered(stdout):
+    """reduce's output with its atoms numbered 1, 2, ... in file order.
+    reduce writes the hydrogens it adds with serial number 0; nothing in the
+    text refers to a serial (no CONECT), so only columns 7-11 of the ATOM and
+    HETATM lines change. From the 100000th atom on, the serial is written in
+    hexadecimal, as ProDy writes it (and reads it back)."""
+    out, n = [], 0
+    for l in stdout.splitlines(True):
+        if l.startswith(('ATOM  ', 'HETATM')):
+            n += 1
+            l = l[:6] + ('%5d' % n if n < 100000 else '%5x' % n) + l[11:]
+        out.append(l)
+    return ''.join(out)
+
+
 def version(stdout):
     """'reduce.3.23.130521' from the first USER MOD line, or None."""
     m = re.match(r'USER  MOD (reduce\S*)', stdout or '')

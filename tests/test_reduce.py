@@ -67,6 +67,22 @@ def test_protonated_receptor_pdb():
     his = [x for x in dec if ':HIS:' in x['residue']]
     check(his and all(x['decision'].endswith(('HD1', 'HE2', 'HN')) or 'FLIP' in x['decision']
                       for x in his), his)
+    # reduce's output as it wrote it, except the atom numbers: 1..N in order
+    # (reduce gives the hydrogens it adds the number 0)
+    from adapt import reduce_log
+    raw = reduce_log.LAST['stdout'].splitlines()
+    body = p[len(head):]
+    check(len(body) == len(raw), (len(body), len(raw)))
+    check(any(l.startswith('ATOM      0 ') for l in raw), 'reduce numbers added H 0')
+    serials, n_atom = [], 0
+    for mine, theirs in zip(body, raw):
+        if theirs.startswith(('ATOM  ', 'HETATM')):
+            n_atom += 1
+            check(mine[:6] + mine[11:] == theirs[:6] + theirs[11:], (mine, theirs))
+            serials.append(int(mine[6:11]))
+        else:
+            check(mine == theirs, (mine, theirs))
+    check(serials == list(range(1, n_atom + 1)), 'atoms numbered 1..%d in order' % n_atom)
     # every recorded decision is one of reduce's USER MOD lines in the PDB
     user = [l for l in p if l.startswith('USER  MOD')]
     for x in dec:
@@ -89,6 +105,26 @@ def test_symmetry_copies_are_renamed_for_reduce():
     check(sorted(set(v['segment'] for v in ren.values())) == ['B', 'C'], ren)
     chains_pdb = set(l[21] for l in _atoms(read(pdb).decode().splitlines()))
     check(set(ren) <= chains_pdb, (ren, chains_pdb))
+
+
+def test_renumbered_past_99999():
+    """Serials 1..99999 in decimal, then hexadecimal as ProDy writes them;
+    ProDy reads the file back with the same numbers."""
+    import io
+    import prody
+    from adapt import reduce_log
+    def line(i):            # as reduce writes an added hydrogen: serial 0
+        return ('ATOM  %5d  H   GLY A%4d    %8.3f%8.3f%8.3f  1.00  0.00           H   new'
+                % (0, i % 9999 + 1, i * 0.001, 0.0, 0.0))
+    text = 'USER  MOD reduce\n' + ''.join(line(i) + '\n' for i in range(100002))
+    out = reduce_log.renumbered(text).splitlines()
+    check(out[0] == 'USER  MOD reduce', out[0])
+    around = [l[6:11] for l in out[99998:100003]]       # atoms 99998..100002
+    check(around == ['99998', '99999', '186a0', '186a1', '186a2'], around)
+    check(all(l[:6] + l[11:] == line(i)[:6] + line(i)[11:] for i, l in enumerate(out[1:])),
+          'only the serial changed')
+    ag = prody.parsePDBStream(io.StringIO('\n'.join(out) + '\n'))
+    check(list(ag.getSerials()) == list(range(1, 100003)), 'ProDy reads the numbers back')
 
 
 def test_protonate_copy_is_verbatim():

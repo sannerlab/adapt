@@ -13,7 +13,8 @@ makeAndSaveRecFile and makeAndSaveLigFile (pdbAnalyser.py, adcpsuite ADFR):
             ADapt: which biomolecule the receptor was built from (ADFR's
             header writer has a commented-out placeholder for it). Next to
             it, <pdbid>_rec_H.pdb: the same header, then what reduce wrote
-            (its USER MOD lines and every atom with all of its hydrogens).
+            (its USER MOD lines and every atom with all of its hydrogens),
+            with the atoms numbered in order (reduce numbers added H 0).
   ligand:   processBM(), then processLigands(mol.select('ligand')), one
             ADLigand per connected fragment, written with getPDBQTlines,
             with the same biomolecule line added after its "source" line and
@@ -78,6 +79,7 @@ def receptor(session, folder):
         with open(pdb, 'w') as fh:
             for l in header:
                 fh.write('%s\n' % l)
+            out = reduce_log.renumbered(out)
             fh.write(out if out.endswith('\n') else out + '\n')
         paths.append(pdb)
     return paths

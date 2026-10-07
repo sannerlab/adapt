@@ -125,7 +125,7 @@ The command line has no altloc option, so step 4 is a choice only the panel can 
 Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`, else `~/adapt_runs/`; `/tmp` is refused). The folder holds:
 
 - the input PDB, under its own name, because ADFR reads the PDB id from it to look up the known ligands;
-- `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten. A receptor save holds `<id>_rec.pdbqt` and `<id>_rec_H.pdb`: the receptor as `reduce` protonated it, with every hydrogen (non-polar ones included), the PDBQT's `REMARK 850` header, then `reduce`'s output verbatim, including its `USER  MOD` lines (each His/Asn/Gln decision: protonation, flip, score, category K/F/C/X). ADFR parses that output and discards it; `adapt/reduce_log.py` is a copy of ADFR's `protonate` that keeps it (the installed ADFR is not changed, and the PDBQT is unchanged);
+- `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten. A receptor save holds `<id>_rec.pdbqt` and `<id>_rec_H.pdb`: the receptor as `reduce` protonated it, with every hydrogen (non-polar ones included), the PDBQT's `REMARK 850` header, then `reduce`'s output, including its `USER  MOD` lines (each His/Asn/Gln decision: protonation, flip, score, category K/F/C/X). ADFR parses that output and discards it; `adapt/reduce_log.py` is a copy of ADFR's `protonate` that keeps it (the installed ADFR is not changed, and the PDBQT is unchanged). The one change to `reduce`'s text: its added hydrogens all have serial number 0, so ADapt numbers every atom 1..N in file order (hexadecimal from the 100,000th, as ProDy does);
 - `session.json`, which records the input md5, the ADFR package version and the md5 of the ADFR sources that ran, the ADapt version and commit, every edit in order, and every file written with its md5. A receptor save also records `reduce`: its version, its His/Asn/Gln `decisions` (`{"residue": "L:HIS:198:_", "decision": "no HD1", "score": 0.771, "category": "K", ...}`) and the `chain_renames` made for symmetry copies (`{"2": {"segment": "C", "chain": "A"}}`).
 
 ## Embedding ADapt
@@ -167,7 +167,6 @@ What the files record:
 - **ADFR's command line misreports `--ionCharges`.** The atom gets the requested charge, but its `custom charge` REMARK gives the default (`= 2.0000` for a zinc set to 1.5), because that line is read from the asymmetric unit, which the option does not change. ADapt sets the charge there too, so its REMARK reports the charge written (`tests/test_parity.py::test_ion_charge_matches_command_line`).
 - **`side chain completed` lists completions in chains the tab does not contain.**
 - **Symmetry copies get new chain identifiers** (`0`, `1`, …) in the receptor files (PDBQT, and the atoms and `USER  MOD` lines of `_rec_H.pdb`); ADFR does not rename them back after `reduce`. ADapt records the renames in `session.json` (`reduce.chain_renames`).
-- **(reduce) In `_rec_H.pdb`, added hydrogens have atom serial number 0**, marked `new` after column 80 (flipped atoms `flip`); renumber if a program needs unique serials.
 - **A ligand's atom records say chain `A`** whatever chain it came from, and its source line is `REMARK 850 source .pdb`, with no file name. The coordinates are correct, and ADapt records the true origin in `REMARK 850 AGFR ligand from B:EYB:402:_`.
 - **(ADapt) Some choices are in the session record only:** which hetero groups were kept, and ADapt's version, are in `session.json`, not in the PDBQT header.
 
@@ -217,7 +216,8 @@ There is no pytest in the shared env; `run_tests.py` is a small runner. Outputs 
 - missing residues against REMARK 465 for the ten test PDBs, the 3D markers, and that ADFR's
   own `_gaps` reports none.
 - the protonated receptor PDB (same header and heavy atoms as the PDBQT, every polar H of the
-  PDBQT, `reduce`'s decisions and chain renames in `session.json`), and that the `protonate`
+  PDBQT, `reduce`'s text with only the atom numbers changed, numbered 1..N, past 99999 too;
+  `reduce`'s decisions and chain renames in `session.json`), and that the `protonate`
   copy differs from ADFR's only by its marked lines;
 - opening a session from elsewhere, and serving under `/adapt/` through a proxy that rewrites
   nothing (`--base-path`, relative paths).
