@@ -161,6 +161,10 @@ What is written:
 - **Tied alternate locations.** With equal occupancies the default location varies from run to run (Python's set order), so one PDB file can give different receptors. All 7 altloc residues of 1FV1 tie, as do 2 of 4A1X's 20, 2 of 5HHT's 33 and 4 of 6BHG's 19. Choose them explicitly; the `altlocs` REMARK records the one used.
 - **Unsupported atom types** (Cu, Na, K, …) are left out of the receptor, with no substitution.
 - **Bromine's default manual charge is +1** in ADFR's table; a bromide is −1.
+- **An FE2 ion stops the file from opening** ("no ion charge found for residue …"): the ion is recognised by element, its default charge looked up by residue name, and the table has only `FE`. Reproduced on 6GGD with an FE2 added; `MN3` probably the same (not checked).
+- **A chloride ion is written with charge 0.** It lands in *other*, because chloride (−1) is commented out of ADFR's manual-charge table. Reproduced on 6GGD with a Cl⁻ added.
+- **Suspected, not yet reproduced: bonded Cl and Br may get no partial charge.** MolKit2's `assignPartialChargesOB` charges only elements listed as `Cl`/`Br`, while receptor atoms carry `CL`/`BR` (case-sensitive match).
+- **Suspected, not yet tested: ions in symmetry copies may lose their manual charge**, because the charges are re-applied by chain id after `reduce` renamed the copies' chains.
 - **The rotamer drop-down is a preview.** `mutateResidues` always builds the best-scoring rotamer, as in AGFRgui.
 
 What the files record:

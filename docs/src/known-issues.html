@@ -23,6 +23,27 @@ href="case-altlocs.html">Alternate locations</a></td></tr>
 (copper, sodium, potassium, …) are left out of the receptor, with no substitution
 offered.</td><td>ADFR</td><td><a href="case-metals.html#unknown">Unsupported
 atoms</a></td></tr>
+<tr><td><b>An FE2 ion stops the file from opening</b></td><td>A one-atom residue named
+<code>FE2</code> (iron(II), as many entries name it) makes loading fail with <i>no ion charge
+found for residue …</i>. The ion is recognised by its element, but its default charge is looked
+up by residue name, and ADFR's table has only <code>FE</code>. Reproduced on 6GGD with an FE2
+added; <code>MN3</code> probably fails the same way (not checked).</td><td>ADFR</td><td><a
+href="case-metals.html">Metals</a></td></tr>
+<tr><td><b>A chloride ion is written with charge 0</b></td><td>A chloride ion lands in
+<i>other</i>, not <i>manual charges</i>: chloride (−1) is commented out of ADFR's table of manual
+charges. Checked into the receptor, it is written with charge 0.00. Reproduced on 6GGD with a Cl⁻
+added.</td><td>ADFR</td><td><a href="case-metals.html">Metals</a></td></tr>
+<tr><td><b>Suspected: bonded Cl and Br may get no partial charge</b></td><td>Found by reading the
+code, not yet reproduced on a molecule. Open Babel's Gasteiger charges are applied only to atoms
+whose element is in a list written <code>Cl</code>, <code>Br</code>, while the receptor's elements
+are <code>CL</code>, <code>BR</code>. A chlorine or bromine bonded in a residue kept in the receptor
+(a cofactor, a modified residue) would then get no partial charge.</td><td>ADFR
+(MolKit2)</td><td></td></tr>
+<tr><td><b>Suspected: ions in symmetry copies may lose their charge</b></td><td>Found by reading the
+code, not yet tested. The manual charges are set again after <code>reduce</code> by selecting each
+ion by chain identifier, but a copy's chain has been renamed (<code>0</code>, <code>1</code>, …), so
+the copy's ion would not be found and would keep charge 0.</td><td>ADFR</td><td><a
+href="case-biomolecule.html">Biological assembly</a></td></tr>
 <tr><td><b>Bromine's default charge is +1</b></td><td>ADFR's table of manual charges gives Br +1;
 a bromide ion would be −1. Check, and edit the charge if a Br is in your
 receptor.</td><td>ADFR</td><td><a href="case-metals.html">Metals</a></td></tr>
