@@ -2,7 +2,7 @@
 """What the checkboxes, altloc radios, charges and menus do to the atoms."""
 import os
 
-from common import (CHECKED, LIG, PARTIAL, REC, UNCHECKED, check, find,
+from common import (CHECKED, LIG, PARTIAL, REC, UNCHECKED, check, find, origins,
                     read, session, set_state)
 
 
@@ -167,3 +167,8 @@ def test_ligand_records_its_biomolecule():
         i = [k for k, l in enumerate(lines) if 'biomolecule' in l]
         check(len(i) == 1 and lines[i[0]] == 'REMARK 850 AGFR biomolecule ASU: chains A B', (name, lines[:4]))
         check(lines[i[0] - 1].startswith('REMARK 850 source'), (name, lines[:4]))
+        check(lines[i[0] + 1].startswith('REMARK 850 AGFR ligand from '), (name, lines[:5]))
+    # each file names the EYB it was made from, its chain included
+    found = sorted(o for name in names for o in
+                   origins(read(os.path.join(s.folder, 'save_%03d_lig' % d['save'], name))))
+    check(found == ['A:EYB:402:_', 'B:EYB:402:_'], found)

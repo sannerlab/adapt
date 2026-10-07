@@ -130,7 +130,7 @@ Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`
 
 ## Where ADapt differs from AGFRgui (all fixes of GUI defects)
 
-- **The receptor and ligand files record their biomolecule.** ADapt adds one line after the header's `source` line (`REMARK 850 AGFR source` in a receptor, `REMARK 850 source` in a ligand): the tab the file was written from, the chains of the asymmetric unit it uses, and, for an assembly built by symmetry, the number of copies. Examples: `REMARK 850 AGFR biomolecule Biomol 2: chains B`, `REMARK 850 AGFR biomolecule Biomol 1: chains A B, 3 copies`, `REMARK 850 AGFR biomolecule ASU: chains A B`. ADFR's header writer has a commented-out placeholder for this line. The same line goes into every ligand file. It is the only difference between ADapt's files and ADFR's, and the parity tests check exactly that.
+- **The receptor and ligand files record their biomolecule.** ADapt adds one line after the header's `source` line (`REMARK 850 AGFR source` in a receptor, `REMARK 850 source` in a ligand): the tab the file was written from, the chains of the asymmetric unit it uses, and, for an assembly built by symmetry, the number of copies. Examples: `REMARK 850 AGFR biomolecule Biomol 2: chains B`, `REMARK 850 AGFR biomolecule Biomol 1: chains A B, 3 copies`, `REMARK 850 AGFR biomolecule ASU: chains A B`. ADFR's header writer has a commented-out placeholder for this line. The same line goes into every ligand file, followed by `REMARK 850 AGFR ligand from <chain:name:number:icode> ...`: the residues the ligand was made of, with their real chain, which the ligand's atom records lose (four per line for a peptide). These lines are the only difference between ADapt's files and ADFR's, and the parity tests check exactly that.
 
 - **An edited manual charge is used.** AGFRgui's `_getCharges` reads a checkbox column the charge items never have, so the spin box value was silently dropped and the default charge written. With unedited charges both write the same bytes.
 - **Tab switches apply correctly.**
@@ -158,8 +158,8 @@ What the files record:
 - **ADFR's command line misreports `--ionCharges`.** The atom gets the requested charge, but its `custom charge` REMARK gives the default (`= 2.0000` for a zinc set to 1.5), because that line is read from the asymmetric unit, which the option does not change. ADapt sets the charge there too, so its REMARK reports the charge written (`tests/test_parity.py::test_ion_charge_matches_command_line`).
 - **`side chain completed` lists completions in chains the tab does not contain.**
 - **Symmetry copies get new chain identifiers** (`0`, `1`, …) in the receptor file; ADFR does not rename them back after `reduce`.
-- **A ligand file loses its origin.** Its chain is labelled `A` whatever chain it came from, and its source line is `REMARK 850 source .pdb`, with no file name. The coordinates are correct.
-- **(ADapt) Some choices are in the session record only:** which hetero groups were kept, the ligand's origin, and ADapt's version are in `session.json`, not in the PDBQT header.
+- **A ligand's atom records say chain `A`** whatever chain it came from, and its source line is `REMARK 850 source .pdb`, with no file name. The coordinates are correct, and ADapt records the true origin in `REMARK 850 AGFR ligand from B:EYB:402:_`.
+- **(ADapt) Some choices are in the session record only:** which hetero groups were kept, and ADapt's version, are in `session.json`, not in the PDBQT header.
 
 What is shown:
 - **A gap whose ends meet is not shown.** A stretch listed as missing whose neighbouring residues are within 3.5 Å (C to N) is treated as continuous; ADFR's source names the case it was written for (1JFF GLY34-HIS61, 2.68 Å).

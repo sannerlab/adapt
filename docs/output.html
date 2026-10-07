@@ -92,6 +92,7 @@ one ligand, prepared by ADFR: hydrogens added and Gasteiger charges assigned wit
 <pre>REMARK 850 file prepared by AGFR version 1.2dev
 REMARK 850 source .pdb
 REMARK 850 AGFR biomolecule Biomol 2: chains B
+REMARK 850 AGFR ligand from B:EYB:402:_
 REMARK 4 active torsions:
 REMARK  status: ('A' for Active; 'I' for Inactive)
 REMARK    0  A    between atoms: C10_7 and C18_14
@@ -99,8 +100,9 @@ REMARK    0  A    between atoms: C10_7 and C18_14
 ROOT
 HETATM    1  N1  EYB A 402     124.498 103.049 -42.674  1.00  0.00    -0.34  N</pre>
 <div class="note"><b>The chain letter.</b> This EYB is chain B's; its coordinates are chain B's,
-but the ligand file labels it chain A, because the chain identifier is not kept through ADFR's
-Open Babel conversion. AGFRgui writes the same file.</div>
+but its atom records label it chain A, because the chain identifier is not kept through ADFR's
+Open Babel conversion (AGFRgui's file is the same). ADapt's
+<code>REMARK 850 AGFR ligand from B:EYB:402:_</code> line records where it came from.</div>
 <p>The files are named as AGFRgui names them: <code>&lt;id&gt;_rec.pdbqt</code> and
 <code>&lt;id&gt;_lig.pdbqt</code>, or <code>&lt;id&gt;_lig_001.pdbqt</code>, … when there are
 several fragments.</p>

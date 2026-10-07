@@ -107,6 +107,7 @@ here even when <code>--ionCharges</code> changed it. See <a href="case-metals.ht
 <pre>REMARK 850 file prepared by AGFR version 1.2dev
 REMARK 850 source .pdb
 REMARK 850 AGFR biomolecule Biomol 2: chains B
+REMARK 850 AGFR ligand from B:EYB:402:_
 REMARK 4 active torsions:
 REMARK  status: ('A' for Active; 'I' for Inactive)
 REMARK    0  A    between atoms: C10_7 and C18_14
@@ -119,6 +120,11 @@ version.</td><td>As in the receptor.</td></tr>
 name empty in ligand files; the receptor's <code>source</code> line names it.</td></tr>
 <tr><td><code>biomolecule Biomol 2: chains B</code></td><td>The tab the ligand was written from,
 as in the receptor.</td><td>Added by ADapt, in every ligand file (one per fragment).</td></tr>
+<tr><td><code>ligand from B:EYB:402:_</code></td><td>The <b>residues of the PDB file the ligand
+was made of</b>, in file order, with their real chain.</td><td>Added by ADapt. A ligand of several
+residues, such as a peptide, takes several lines of four residues each:
+<code>ligand from B:SER:10:_ B:THR:11:_ B:GLY:12:_ B:GLY:13:_</code>, and so on. Each file of a
+ligand split into fragments names only its own residues.</td></tr>
 <tr><td><code>4 active torsions</code> and the <code>between atoms</code> lines</td><td>The
 ligand's rotatable bonds, all active, each between two atoms named
 <code>NAME_number</code>.</td><td>They match the torsion tree that follows
@@ -126,12 +132,13 @@ ligand's rotatable bonds, all active, each between two atoms named
 </table>
 <div class="note"><b>The ligand's chain.</b> The atom records of a ligand file label its chain
 <code>A</code> whatever chain it came from, because the identifier is lost in ADFR's Open Babel
-conversion. The coordinates are those of the chosen fragment, and the session record names the
-residue that was chosen.</div>
+conversion. The coordinates are those of the chosen fragment, and the <code>ligand from</code>
+line gives its true chain and residues.</div>
 
 <h2>Reading the records</h2>
 <pre>grep '^REMARK 850' 6ggd_rec.pdbqt                  # the whole header
 grep 'AGFR biomolecule' *.pdbqt                     # which biomolecule each file came from
+grep 'AGFR ligand from' *_lig*.pdbqt                # which residues each ligand file holds
 grep -E 'AGFR (mutation|side chain completed)' 6ggd_rec.pdbqt
 grep 'AGFR altlocs' 6ggd_rec.pdbqt                  # the conformations that were used</pre>
 
@@ -168,7 +175,6 @@ checks this).</div>
 <ul>
 <li>which hetero groups and waters were kept (their atoms are in the file, but no line says they
 were chosen);</li>
-<li>the chain and residue a ligand came from;</li>
 <li>the version and git commit of ADapt, the <code>adfr</code> package version, and checksums of
 the ADFR source files that ran;</li>
 <li>the input file's checksum, and where it came from (an upload, or an RCSB URL);</li>

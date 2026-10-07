@@ -10,7 +10,7 @@ atoms flagged directly with prody, independently of the tree code.
 import os
 
 from common import (CHECKED, LIG, PDBS, REC, UNCHECKED, check, find, outdir,
-                    oracle_receptor, quiet, read, session, set_state,
+                    oracle_receptor, origins, quiet, read, session, set_state,
                     without_biomolecule)
 
 
@@ -172,6 +172,12 @@ def test_6bhg_chain_B_as_ligand():
           '%s vs %s' % (web, ref))
     for a, b in zip(web, ref):
         _same(a, b)
+    # the peptide's residues, in file order, four keys per line
+    raw = read(web[0])
+    keys = origins(raw)
+    check(keys and all(k.startswith('B:') for k in keys) and len(set(keys)) == len(keys), keys)
+    lines = [l for l in raw.split(b'\n') if l.startswith(b'REMARK 850 AGFR ligand from ')]
+    check(len(lines) == (len(keys) + 3) // 4, (len(keys), len(lines)))
 
 
 def test_ion_charge_matches_command_line():

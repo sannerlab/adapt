@@ -119,12 +119,14 @@ def check(cond, msg=''):
 
 
 BIOMOL = b'REMARK 850 AGFR biomolecule '
+ORIGIN = b'REMARK 850 AGFR ligand from '
 
 
 def without_biomolecule(data):
-    """A PDBQT file as ADFR writes it: ADapt's bytes minus the one line it adds
-    (REMARK 850 AGFR biomolecule ...), which must be there exactly once, right
-    after the "source" line. ADFR's own files pass through unchanged."""
+    """A PDBQT file as ADFR writes it: ADapt's bytes minus the lines it adds
+    (REMARK 850 AGFR biomolecule ..., then in a ligand REMARK 850 AGFR ligand
+    from ...), which must be there once, right after the "source" line. ADFR's
+    own files pass through unchanged."""
     lines = data.split(b'\n')
     at = [i for i, l in enumerate(lines) if l.startswith(BIOMOL)]
     if not at:
@@ -132,4 +134,18 @@ def without_biomolecule(data):
     check(len(at) == 1, 'one biomolecule line, found %d' % len(at))
     check(lines[at[0] - 1].startswith((b'REMARK 850 AGFR source', b'REMARK 850 source')),
           'biomolecule line follows source')
-    return b'\n'.join(lines[:at[0]] + lines[at[0] + 1:])
+    # a ligand's origin lines, if any, come right after it
+    end = at[0] + 1
+    while end < len(lines) and lines[end].startswith(ORIGIN):
+        end += 1
+    check(not any(l.startswith(ORIGIN) for l in lines[end:]), 'origin lines are together')
+    return b'\n'.join(lines[:at[0]] + lines[end:])
+
+
+def origins(data):
+    """The residue keys a ligand file's REMARK 850 AGFR ligand from lines name."""
+    out = []
+    for l in data.split(b'\n'):
+        if l.startswith(ORIGIN):
+            out.extend(l[len(ORIGIN):].decode().split())
+    return out

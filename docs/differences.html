@@ -49,6 +49,9 @@ ADFR's own test files.</p>
 <code>REMARK 850 AGFR biomolecule</code> line names the tab the file was written from, the chains it
 uses and, for an assembly built by symmetry, the number of copies. ADFR's header writer has this
 line commented out.</li>
+<li><b>A ligand file names the residues it came from</b>
+(<code>REMARK 850 AGFR ligand from B:EYB:402:_</code>), with their real chain, which its atom
+records lose.</li>
 <li><b>Missing residues are shown.</b> ADFR's detection never reported one, because its test for a
 gap in the alignment was always false. ADapt uses a corrected copy of that function, which also
 fixes four defects the test had been hiding. The results match the files' own REMARK 465 records

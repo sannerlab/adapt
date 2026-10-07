@@ -14,7 +14,9 @@ makeAndSaveRecFile and makeAndSaveLigFile (pdbAnalyser.py, adcpsuite ADFR):
             header writer has a commented-out placeholder for it).
   ligand:   processBM(), then processLigands(mol.select('ligand')), one
             ADLigand per connected fragment, written with getPDBQTlines,
-            with the same biomolecule line added after its "source" line.
+            with the same biomolecule line added after its "source" line and
+            then the residues the fragment came from (ADFR's ligand file
+            labels its chain A whatever the chain was, and names no source).
 
 File names are the ones AGFRgui proposes: <pdbid>_rec.pdbqt, <pdbid>_lig.pdbqt,
 or <pdbid>_lig_NNN.pdbqt when the ligand atoms form several fragments. Each
@@ -65,17 +67,30 @@ def receptor(session, folder):
     return [path]
 
 
-def _with_biomolecule(lines, tree):
-    """ADFR's header lines with the biomolecule line inserted after the
-    "source" line: 'REMARK 850 AGFR source' in a receptor, 'REMARK 850 source'
-    in a ligand (ADLigand's own style)."""
+def _with_biomolecule(lines, tree, more=()):
+    """ADFR's header lines with the biomolecule line, then `more` lines,
+    inserted after the "source" line: 'REMARK 850 AGFR source' in a receptor,
+    'REMARK 850 source' in a ligand (ADLigand's own style)."""
     lines = list(lines)
     at = next((i + 1 for i, l in enumerate(lines)
                if l.startswith(('REMARK 850 AGFR source', 'REMARK 850 source'))), None)
     if at is None:      # no source line: after the first REMARK 850, or first
         at = next((i + 1 for i, l in enumerate(lines) if l.startswith('REMARK 850')), 0)
-    lines.insert(at, biomolecule_remark(tree))
+    lines[at:at] = [biomolecule_remark(tree)] + list(more)
     return lines
+
+
+ORIGIN = 'REMARK 850 AGFR ligand from '
+PER_LINE = 4        # residue keys per line, so a long peptide stays readable
+
+
+def origin_remarks(frag):
+    """REMARK 850 AGFR ligand from <chain:name:number:icode> ...: the residues
+    of the PDB file a ligand fragment was made of, in file order, keyed as the
+    other REMARK 850 AGFR lines are ('_' for no insertion code)."""
+    from ADFR.recFromPDB import getResidueKey
+    keys = [getResidueKey(r) for r in frag.getHierView().iterResidues()]
+    return [ORIGIN + ' '.join(keys[i:i + PER_LINE]) for i in range(0, len(keys), PER_LINE)]
 
 
 def biomolecule_remark(tree):
@@ -98,22 +113,28 @@ def ligands(session, folder):
     ligAtoms = mol.select('ligand')
     if ligAtoms is None:
         raise Nothing('no atoms selected for the ligand')
-    nfrag = len(prody.findFragments(ligAtoms))
-    if nfrag > 1:
+    # processLigands makes one ADLigand per fragment of this same call, in this
+    # order, so frags[n] is where ligand file n came from
+    frags = list(prody.findFragments(ligAtoms))
+    if len(frags) > 1:
         print('INFO: ligand atoms form %d connected fragments. '
-              'We will create a file for each fragment' % nfrag)
+              'We will create a file for each fragment' % len(frags))
     agfr._processedLigands = agfr.processLigands(ligAtoms)
+    if len(agfr._adLigs) != len(frags):
+        raise RuntimeError('%d ligands made from %d fragments' % (len(agfr._adLigs), len(frags)))
     filepath = os.path.join(folder, session.profile._pdbid + '_lig.pdbqt')
     paths = []
     if len(agfr._adLigs) > 1:
         basename = os.path.splitext(filepath)[0]
         for num, adlig in enumerate(agfr._adLigs):
             filename = '%s_%03d.pdbqt' % (basename, num + 1)
-            _write_lines(_with_biomolecule(adlig.getPDBQTlines(), session.tree()), filename)
+            _write_lines(_with_biomolecule(adlig.getPDBQTlines(), session.tree(),
+                                           origin_remarks(frags[num])), filename)
             agfr._processedLigands[num].filename = filename
             paths.append(filename)
     else:
-        _write_lines(_with_biomolecule(agfr._adLigs[0].getPDBQTlines(), session.tree()), filepath)
+        _write_lines(_with_biomolecule(agfr._adLigs[0].getPDBQTlines(), session.tree(),
+                                       origin_remarks(frags[0])), filepath)
         agfr._processedLigands[0].filename = filepath
         paths.append(filepath)
     return paths
