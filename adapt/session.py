@@ -20,7 +20,7 @@ import traceback
 from collections import OrderedDict
 
 from . import env  # noqa: F401  (sets ADS_ROOT before ADFR is used)
-from . import flags, gaps, prep, reduce_log
+from . import flags, gaps, prep, rebuild, reduce_log
 from .tree import CHECKED, LIG, REC, Tree
 
 # prody, OpenBabel, reduce's pipes and redirect_stdout are all process-wide.
@@ -109,6 +109,8 @@ class Session(object):
         if not self.agfr._pdbInput:
             raise ValueError('%s was not read as a PDB file' % name)
         self.profile = self.agfr.PDBprofile
+        # the internal gaps, and the ones the user asks to rebuild (rebuild.py)
+        self.rebuilder = rebuild.Rebuilder(self.profile)
         # the altloc each residue was flagged with when the file was read
         self._altloc0 = dict((k, v[0]) for k, v in self.profile._altlocsRes.items())
         self.record['options'] = _jsonable(self.options)
@@ -216,7 +218,9 @@ class Session(object):
     def view(self, full=False, name=None):
         tree = self.tree(name)
         d = {'tab': tree.name, 'states': tree.states(), 'buttons': self.buttons(),
-             'atoms': self.atom_states(name)}
+             'atoms': self.atom_states(name),
+             # the page redraws the rebuilt residues after an edit while any are chosen
+             'rebuild': len(self.rebuilder.chosen_in(tree._chaindInBM))}
         if full:
             d['tree'] = tree.to_json()
         d['log'] = self.new_log()
@@ -315,6 +319,85 @@ class Session(object):
         return {'pdb': pdb, 'index': index, 'message': node.rotamer.message(index),
                 'auto': node.rotamer.best}
 
+    def rebuild(self, nid, on):
+        """The rebuild box of an internal gap: choose it (or not), and build it
+        at once, so the page can show the residues before they are written. A
+        loop that is not sane is refused: the box goes back, with the reason."""
+        node = self.node(nid)
+        if node.rebuild is None:
+            raise flags.Refused('%s is not a gap that can be rebuilt' % node.label)
+        key, on = node.rebuild['key'], bool(on)
+        try:
+            self.rebuilder.choose(key, on)
+        except ValueError as e:
+            raise flags.Refused('%s cannot be rebuilt: %s' % (node.label, e))
+        with captured(self.log):
+            flags.invalidate(self.agfr)
+        try:
+            built, refused = self._preview(key)
+        except Exception as e:
+            # leave nothing chosen that cannot be built
+            (self.rebuilder.chosen.discard if on else self.rebuilder.chosen.add)(key)
+            with captured(self.log):
+                flags.invalidate(self.agfr)
+            self.log.append(traceback.format_exc())
+            raise flags.Refused('%s could not be rebuilt: %s: %s'
+                                % (node.label, type(e).__name__, e))
+        if key not in refused:
+            self._boxes(key)
+            self._event('rebuild', node=node.label, key=key, rebuild=on)
+        d = self.view(full=True)
+        d['rebuilt'] = built
+        d['refused'] = list(refused.values())
+        return d
+
+    def rebuilt(self, name=None):
+        """The rebuilt residues of the current tab, as the receptor would get
+        them now (rebuild.preview); the same molecule a save writes. An edit
+        can leave a chosen gap's loop not sane: it is refused on the way, and
+        the page gets the tree again."""
+        if name and name != self.current:
+            raise flags.Refused('rebuilt residues are drawn for the current tab only')
+        built, refused = self._preview()
+        d = {'rebuilt': built}
+        if refused:
+            d.update(self.view(full=True))
+            d['refused'] = list(refused.values())
+        return d
+
+    def _preview(self, asked=None):
+        """(rebuild.preview of the processed molecule, {key: message} of the
+        chosen gaps refused while making it)."""
+        refused = OrderedDict()
+        while True:
+            try:
+                with captured(self.log):
+                    mol = prep.processed_bm(self)
+                return rebuild.preview(mol), refused
+            except rebuild.NotBuilt as e:
+                refused[e.key] = self._refuse(e, asked)
+
+    def _refuse(self, e, asked=None):
+        """A chosen gap whose loop was not sane (rebuild.NotBuilt e): no longer
+        chosen, its box says why, and the record says so."""
+        self.rebuilder.refuse(e.key, str(e))
+        with captured(self.log):
+            flags.invalidate(self.agfr)
+        self._boxes(e.key)
+        label = next((n.label for n in self.nodes.values()
+                      if n.rebuild is not None and n.rebuild['key'] == e.key), 'gap ' + e.key)
+        self.log.append('NOT REBUILT %s: %s' % (label, e))
+        self._event('rebuild', node=label, key=e.key, rebuild=False, refused=str(e),
+                    asked=e.key == asked)
+        return '%s was not rebuilt: %s' % (label, self.rebuilder.gaps[e.key].why)
+
+    def _boxes(self, key):
+        """The rebuild box of a gap, in every tab built so far."""
+        for n in self.nodes.values():
+            if n.rebuild is not None and n.rebuild['key'] == key:
+                n.rebuild['on'] = key in self.rebuilder.chosen
+                n.rebuild['why'] = self.rebuilder.gaps[key].why
+
     def focus(self, nid):
         return {'indices': flags.focus_indices(self.node(nid))}
 
@@ -341,6 +424,11 @@ class Session(object):
         except prep.Nothing as e:
             os.rmdir(folder)     # empty: nothing was written into it
             raise flags.Refused(str(e))
+        except rebuild.NotBuilt as e:
+            os.rmdir(folder)     # the molecule was made before any file
+            self.log.extend(log)
+            raise flags.Refused('%s. Nothing was written; save again to write without it.'
+                                % self._refuse(e))
         except Exception:
             log.append(traceback.format_exc())
             self.log.extend(log)
@@ -354,6 +442,11 @@ class Session(object):
             with open(p, 'rb') as fh:
                 files.append({'name': os.path.basename(p),
                               'md5': hashlib.md5(fh.read()).hexdigest()})
+        rebuilt = None
+        if kind == 'receptor':
+            # what was rebuilt and written, as the REMARK lines say it
+            rebuilt = [dict((k, v) for k, v in r.items() if k not in ('atoms', 'written'))
+                       for r in getattr(self.agfr._BMProcessed, 'rebuilt', ()) if r['written']]
         reduce = None
         if kind == 'receptor' and reduce_log.LAST.get('stdout'):
             out = reduce_log.LAST['stdout']
@@ -368,6 +461,8 @@ class Session(object):
                                  self.profile._altlocsRes.items()),
                  'charges': flags.charges(self.tree()),
                  'log': log}
+        if rebuilt:
+            entry['rebuilt'] = rebuilt
         if reduce is not None:
             entry['reduce'] = reduce
         self.saves.append(entry)

@@ -210,6 +210,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._run(lambda: app.session(g('s')).mutate_options(g('node')))
         if u.path == '/api/rotamer':
             return self._run(lambda: app.session(g('s')).rotamer(g('node'), g('choice', '-1')))
+        if u.path == '/api/rebuilt':
+            return self._run(lambda: app.session(g('s')).rebuilt(g('tab')))
         if u.path == '/api/download':
             return self._download(app, g('s'), g('save'), g('file'))
         return self._send({'error': 'no such endpoint'}, 404)
@@ -304,6 +306,7 @@ class Handler(BaseHTTPRequestHandler):
             '/api/charge': lambda: s().charge(body.get('node'), body.get('value')),
             '/api/sidechain': lambda: s().sidechain(body.get('node'), body.get('act')),
             '/api/mutate': lambda: s().mutate(body.get('node'), body.get('choice', '')),
+            '/api/rebuild': lambda: s().rebuild(body.get('node'), body.get('on')),
             '/api/select': lambda: s().select(body.get('what')),
             '/api/save': lambda: _save(s(), body.get('kind')),
         }
