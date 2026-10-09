@@ -59,6 +59,11 @@ asparagine and glutamine. ADFR discards this output after reading it.</li>
 gap in the alignment was always false. ADapt uses a corrected copy of that function, which also
 fixes four defects the test had been hiding. The results match the files' own REMARK 465 records
 on ADFR's ten test entries. The PDBQT files do not change.</li>
+<li><b>A gap can be rebuilt.</b> On request, gap by gap, ADapt builds the missing residues of a gap
+inside a chain (PDBFixer, then Amber ff14SB with the observed atoms fixed), checks their
+geometry, and writes them with the receptor, recorded in a <code>REMARK 850 AGFR rebuilt</code>
+line. Nothing is rebuilt unless asked, and then the files are ADFR's. See
+<a href="case-missing-residues.html#rebuild">rebuilding a gap</a>.</li>
 <li><b>An edited ion charge is used.</b> AGFRgui's charge box was never read back, so the default
 charge was always written.</li>
 <li><b>A save after a tab switch writes the new tab.</b> AGFRgui kept the previous tab's molecule

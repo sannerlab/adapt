@@ -50,7 +50,9 @@ href="case-biomolecule.html">Biological assembly</a></td></tr>
 <tr><td><b>Tied alternate locations</b></td><td>When two locations have the same occupancy, the
 default one varies from run to run (Python's set order), so the same PDB file can give different
 receptors. Common: all 7 altloc residues of 1FV1. Choose such residues explicitly; the
-<code>altlocs</code> REMARK records what was used.</td><td>ADFR</td><td><a
+<code>altlocs</code> REMARK records what was used. A side chain ADFR completes in such a residue
+is built on whichever location it took, so its atoms move too (6BHG B:SER:10), and so does a gap
+rebuilt next to it.</td><td>ADFR</td><td><a
 href="case-altlocs.html">Alternate locations</a></td></tr>
 <tr><td><b>Unsupported atom types are dropped</b></td><td>Atoms outside the AutoDock 4.1 types
 (copper, sodium, potassium, …) are left out of the receptor, with no substitution
@@ -80,6 +82,18 @@ href="case-biomolecule.html">Biological assembly</a></td></tr>
 <tr><td><b>Bromine's default charge is +1</b></td><td>ADFR's table of manual charges gives Br +1;
 a bromide ion would be −1. Check, and edit the charge if a Br is in your
 receptor.</td><td>ADFR</td><td><a href="case-metals.html">Metals</a></td></tr>
+<tr><td><b>A rebuilt loop is one model</b></td><td>A gap's residues are built once, from one
+seed, without knowledge of the binding site; the loop is a plausible conformation with sane
+geometry, not the loop's position. A missing loop near the site is still a reason to choose
+another copy, assembly or entry.</td><td>ADapt</td><td><a
+href="case-missing-residues.html#rebuild">Rebuilding a gap</a></td></tr>
+<tr><td><b>Some gaps cannot be rebuilt</b></td><td>Missing termini are not offered, nor gaps
+whose residues REMARK 465 does not list, gaps with a modified residue other than MSE, and gaps
+whose loop fails the geometry checks (4A1X B: GK). The tree gives the reason.</td><td>ADapt</td><td><a
+href="case-missing-residues.html#rebuild">Rebuilding a gap</a></td></tr>
+<tr><td><b>Rebuilt residues are not in ligands</b></td><td>A gap is filled in the receptor only;
+a chain written as a ligand keeps its gap.</td><td>ADapt</td><td><a
+href="case-missing-residues.html#rebuild">Rebuilding a gap</a></td></tr>
 <tr><td><b>The rotamer drop-down is a preview</b></td><td>The side chain written is always the
 best-scoring rotamer, whatever the drop-down shows.</td><td>ADFR (as in AGFRgui)</td><td><a
 href="case-sidechains.html">Missing side chains</a></td></tr>

@@ -56,6 +56,12 @@ chains</a>.</td></tr>
 locations</b> in the receptor, the location used and its occupancy.</td><td>The only record of
 which location was used. When locations tie in occupancy, ADFR's default changes from run to run,
 so this line is how you know. See <a href="case-altlocs.html">alternate locations</a>.</td></tr>
+<tr><td><code>rebuilt A:GLY:-2:_ to A:GLY:1:_ (GKGG) using PDBFixer 1.8.1 and Amber ff14SB, seed
+1</code></td><td>Each <b>gap whose missing residues were built</b>: the first and last new
+residue, their sequence, the programs that placed and refined them, and the seed.</td><td>Added
+by ADapt, only for gaps you chose to rebuild, once per gap however many copies of the chain the
+assembly has. The new atoms have occupancy 1.00 and B-factor 0.00. See <a
+href="case-missing-residues.html#rebuild">rebuilding a gap</a>.</td></tr>
 <tr><td><code>protonated using reduce</code></td><td>Hydrogens were added by
 <code>reduce</code>.</td><td></td></tr>
 <tr><td><code>partial charge assigned using OpenBabel Gasteiger model</code></td><td>Partial
@@ -125,6 +131,7 @@ for the asymmetric unit)</td></tr>
 <tr><td>residues removed from the receptor</td><td><code>--protToRemove "chid C"</code></td></tr>
 <tr><td><code>altlocs …</code>, side chains left as is</td><td>no option: these choices need ADapt
 or AGFRgui</td></tr>
+<tr><td><code>rebuilt …</code></td><td>no option: rebuilt gaps need ADapt</td></tr>
 </table>
 <p>ADapt's tests check this correspondence: for the same choices, the receptor ADapt writes is
 byte-identical to the command line's, apart from the <code>biomolecule</code> line. See

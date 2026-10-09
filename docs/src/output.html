@@ -22,6 +22,8 @@ preparation:</p>
 <ol>
 <li>selenomethionines become methionines;</li>
 <li>mutations are made and missing side chains built (best-scoring rotamer);</li>
+<li>the gaps you chose to rebuild, if any, get their residues (ADapt; see
+<a href="case-missing-residues.html#rebuild">rebuilding a gap</a>);</li>
 <li>the alternate locations not chosen are dropped;</li>
 <li>hydrogens are added with <code>reduce</code>;</li>
 <li>Gasteiger charges are assigned with Open Babel, and manual charges are set on the ions;</li>
@@ -126,7 +128,9 @@ choices, mutations;</li>
 <li>every save: its folder, the files and their md5, and the mutations, alternate locations and
 charges it was made with;</li>
 <li>for a receptor save, <code>reduce</code>'s version and decisions, and the chain renames made
-for it.</li>
+for it;</li>
+<li>for a receptor save with rebuilt gaps, each gap and each copy of it: its residues, how they
+were built, and the geometry measured on them (below).</li>
 </ul>
 <pre>"events": [
   {"what": "tab",    "name": "Biomol 2", "at": "2026-09-29T14:30:44"},
@@ -154,6 +158,31 @@ metal) is kept as <code>{"raw": "&lt;the line&gt;"}</code>. <code>chain_renames<
 given to a symmetry copy back to its segment and original chain, for instance
 <code>"2": {"segment": "C", "chain": "A"}</code> in 1H6W's Biomol 1; it is empty when nothing was
 renamed.</p>
+
+<p>A rebuilt gap is an edit like the others (<code>{"what": "rebuild", "key": "A:SER:-3:_
+A:PRO:2:_", "rebuild": true, ...}</code>; a loop that failed its checks adds
+<code>"refused"</code> with the reason), and a receptor save that wrote it records it:</p>
+<pre>"rebuilt": [
+  {"gap": "A:SER:-3:_ A:PRO:2:_", "segment": "A", "sequence": "GKGG",
+   "residues": ["A:GLY:-2:_", "A:LYS:-1:_", "A:GLY:0:_", "A:GLY:1:_"],
+   "method": "PDBFixer 1.8.1 and Amber ff14SB", "openmm": "7.6.0", "platform": "Reference",
+   "seed": 1,
+   "geometry": {
+     "bonds": [{"pair": "SER -3 to GLY -2", "C-N": 1.339, "CA-CA": 3.817, "omega": 170.8},
+               ...
+               {"pair": "GLY 1 to PRO 2", "C-N": 1.355, "CA-CA": 3.873, "omega": -175.2}],
+     "C-N": [1.335, 1.355], "CA-CA": [3.809, 3.873], "cis": [],
+     "CA": [{"residue": "LYS -1", "improper": 127.8}], "allo": [], "contact": 3.52},
+   "seconds": {"pdbfixer": 2.51, "refine": 2.31, "tries": 1, "total": 4.82},
+   "build": "4bbf3919..."}
+]</pre>
+<p><code>bonds</code> has one entry per new peptide bond, the two joins included;
+<code>CA</code> one per new residue with a CB (its improper N-C-CA-CB), and <code>allo</code> lists
+any new Thr or Ile whose CB has the wrong hand (see the checks in
+<a href="case-missing-residues.html#rebuild">rebuilding a gap</a>). <code>tries</code> counts the
+seeds tried; the loop kept is that of <code>seed</code>.</p>
+<p><code>build</code> is a checksum of everything that went into the build, so two saves with the
+same value hold the same coordinates.</p>
 
 <h2 id="check">Checking against ADFR's command line</h2>
 <p>For the choices ADFR's command line can express, the receptor ADapt writes is byte-identical to
