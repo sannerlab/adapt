@@ -373,6 +373,34 @@ async function sidechain(n, act){
   const d = await api('api/sidechain', {s: S.session, node: n.id, act: act});
   if(!d.error){ TREE = d.tree; renderTree(); applyView(d); }
 }
+/* Recent sessions: those the server holds and those recorded in its output
+   folder (reopened by replaying their edits). */
+$('recentbtn').onclick = async e => {
+  e.stopPropagation();
+  const d = await api('api/sessions');
+  if(d.error) return;
+  const m = $('menu');
+  m.innerHTML = '<div class=head>reopen a session</div>';
+  if(!d.sessions.length) m.innerHTML += '<div class=dim>none yet</div>';
+  for(const x of d.sessions.slice(0, 20)){
+    const div = document.createElement('div');
+    div.textContent = (x.label || x.pdbid || x.session) + '  ·  ' + (x.created || '').replace('T', ' ')
+      + (x.saves ? '  ·  ' + x.saves + ' saved' : '');
+    if(S && S.session === x.session) div.className = 'cur';
+    div.onclick = async () => {
+      closeMenu();
+      status('opening session ' + esc(x.session) + '&hellip;');
+      const r = await api('api/session?s=' + encodeURIComponent(x.session));
+      if(!r.error) loaded(r);
+    };
+    m.appendChild(div);
+  }
+  m.hidden = false;
+  const b = $('recentbtn').getBoundingClientRect();
+  m.style.left = b.left + 'px';
+  m.style.top = (b.bottom + 4) + 'px';
+};
+
 async function substitute(n, element){
   const d = await api('api/substitute', {s: S.session, node: n.id, element: element});
   if(!d.error){ TREE = d.tree; renderTree(); applyView(d); }

@@ -19,6 +19,8 @@ import threading
 import traceback
 from collections import OrderedDict
 
+import numpy
+
 from . import env  # noqa: F401  (sets ADS_ROOT before ADFR is used)
 from . import copies, flags, gaps, prep, reduce_log
 from .tree import CHECKED, LIG, REC, Tree
@@ -53,6 +55,10 @@ def captured(log):
                        and 'pairwise2' not in l)
 
 
+class RestoreError(Exception):
+    """A session folder cannot be restored exactly."""
+
+
 def safe_name(name):
     base = os.path.basename(name or 'input.pdb')
     base = re.sub(r'[^A-Za-z0-9._-]', '_', base).lstrip('.') or 'input.pdb'
@@ -65,27 +71,36 @@ def safe_name(name):
 
 class Session(object):
 
-    def __init__(self, sid, data, filename, outroot, provenance=None, source=None):
+    def __init__(self, sid, data, filename, outroot, provenance=None, source=None,
+                 folder=None):
+        """A new session of `data` (the file `filename`) in a new folder under
+        `outroot`; or, with `folder`, the session of that folder (restore():
+        nothing in it is written until its edits are replayed)."""
         self.id = sid
         self.nodes = {}
         self._next = 0
         self.lock = LOCK
         self.log = []
         self._logsent = 0
+        self._replaying = folder is not None
         name = safe_name(filename)
-        stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        stem = name.split('.')[0]
-        self.folder = os.path.join(outroot, '%s_%s_%s' % (stem, stamp, sid[:6]))
-        os.makedirs(self.folder)
-        # the name is kept: PDBProfiler takes the PDB id from it, and the id
-        # selects the known ligands of that entry (ADFR.PDBLigDicts.pdb2lig)
+        if folder is None:
+            stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+            stem = name.split('.')[0]
+            folder = os.path.join(outroot, '%s_%s_%s' % (stem, stamp, sid[:6]))
+            os.makedirs(folder)
+            # the name is kept: PDBProfiler takes the PDB id from it, and the id
+            # selects the known ligands of that entry (ADFR.PDBLigDicts.pdb2lig)
+            with open(os.path.join(folder, name), 'wb') as fh:
+                fh.write(data)
+        self.folder = folder
         self.input = os.path.join(self.folder, name)
-        with open(self.input, 'wb') as fh:
-            fh.write(data)
         self.saves = []
         self.events = []
         from . import APP, __version__
         self.record = {
+            'schema': 2,
+            'session': sid,
             'tool': {'name': APP, 'version': __version__},
             'created': datetime.datetime.now().isoformat(timespec='seconds'),
             'input': {'name': name, 'bytes': len(data),
@@ -117,6 +132,125 @@ class Session(object):
         self.record['opened_tab'] = first
         self.flush()        # the record exists from the moment a file is opened
 
+    # ---- restoring a session from its folder ----------------------------
+    @classmethod
+    def restore(cls, folder, sid=None, provenance=None):
+        """The session recorded in `folder`, its edits replayed: after a
+        server restart, or for a session another server made. Refused (a
+        RestoreError naming the event) when the input file changed or an edit
+        cannot be replayed exactly; nothing in the folder is changed then."""
+        path = os.path.join(folder, 'session.json')
+        with open(path) as fh:
+            rec = json.load(fh)
+        name = rec['input']['name']
+        with open(os.path.join(folder, name), 'rb') as fh:
+            data = fh.read()
+        if hashlib.md5(data).hexdigest() != rec['input']['md5']:
+            raise RestoreError('%s changed since the session was made' % name)
+        sid = sid or rec.get('session')
+        if not sid:
+            raise RestoreError('the session in %s has no id (made before restore '
+                               'existed); restore it with a new one' % folder)
+        s = cls(sid, data, name, None, provenance, folder=folder)
+        s._replay(rec)
+        return s
+
+    def _replay(self, rec):
+        saves = dict((e.get('after_event'), e) for e in rec['saves'] if 'after_event' in e)
+        try:
+            for k, e in enumerate(rec['events']):
+                if k in saves:
+                    self._check_state(saves[k])
+                self._apply(k, e)
+            if len(rec['events']) in saves:
+                self._check_state(saves[len(rec['events'])])
+        finally:
+            self._replaying = False
+        # from now on the session continues its own record
+        self.record = rec
+        self.events = rec['events']
+        self.saves = rec['saves']
+        self.record['session'] = self.id
+        self._event('restored', events=len(self.events))
+
+    def _check_state(self, save):
+        if save.get('state_md5') and save['state_md5'] != self._state_md5():
+            raise RestoreError('the replayed edits do not give the state of save %d'
+                               % save['n'])
+
+    def _apply(self, k, e):
+        what = e.get('what')
+        if what in ('restored', None):
+            return
+        if e.get('tab') and e['tab'] != self.current and what != 'tab':
+            self.switch(e['tab'])
+        if what == 'tab':
+            self.switch(e['name'])
+            return
+        node = self._find(k, e)
+        if what == 'check':
+            col = {'rec': REC, 'lig': LIG}[e['column']]
+            for _ in range(3):
+                if node.check_state(col) == e['state']:
+                    break
+                self.click(node.id, e['column'])
+            if node.check_state(col) != e['state']:
+                raise RestoreError('event %d (%s %s) does not give the recorded state'
+                                   % (k + 1, what, e.get('node')))
+        elif what == 'altloc':
+            self.altloc(node.id, node.altloc['alts'].index(e['altloc']))
+        elif what == 'charge':
+            self.charge(node.id, e['charge'])
+        elif what == 'sidechain':
+            self.sidechain(node.id, e['action'])
+        elif what == 'mutate':
+            self.mutate(node.id, e['choice'])
+        elif what == 'rotamer':
+            self.rotamer(node.id, -1 if e['rotamer'] == 'auto' else int(e['rotamer']) - 1)
+        elif what == 'substitute':
+            self.substitute(node.id, e.get('element'), e.get('charge'))
+        else:
+            raise RestoreError('event %d: unknown edit %r' % (k + 1, what))
+
+    def _find(self, k, e):
+        """The node an event was made on: by its ref; for sessions recorded
+        before refs, by its residue key, else by its label if no other node of
+        the tab has it."""
+        tree = self.tree()
+        if e.get('ref'):
+            node = tree.resolve(e['ref'])
+        elif e.get('key'):
+            node = tree.resolve({'key': e['key']})
+        else:
+            same = [n for n in tree.walk() if n.label == e.get('node')]
+            if len(same) != 1:
+                raise RestoreError('event %d (%s %s) names %d items of tab %s; it '
+                                   'cannot be replayed' % (k + 1, e.get('what'), e.get('node'),
+                                                           len(same), self.current))
+            node = same[0]
+        if node is None:
+            raise RestoreError('event %d (%s %s): no such item in tab %s'
+                               % (k + 1, e.get('what'), e.get('node'), self.current))
+        return node
+
+    def _state_md5(self):
+        """A digest of what a save of the current tab writes from: the atoms'
+        receptor and ligand flags and charges, and the choices."""
+        ag = self.tree()._ag
+        h = hashlib.md5()
+        h.update(self.current.encode())
+        h.update(ag.getFlags('receptor').tobytes())
+        h.update(ag.getFlags('ligand').tobytes())
+        q = ag.getCharges()
+        if q is not None:
+            h.update(numpy.round(q, 4).tobytes())
+        p = self.profile
+        h.update(json.dumps([sorted(p._resToMutate.items()),
+                             sorted((k, v[1][v[0]]) for k, v in p._altlocsRes.items()),
+                             sorted(p._rotamerChoice.items()),
+                             sorted(p._substitutions.items())], default=str).encode())
+        return h.hexdigest()
+
     def _newid(self):
         self._next += 1
         return self._next
@@ -140,6 +274,11 @@ class Session(object):
         copies.mirror(tree._ag, tree._copies)
 
     def _event(self, what, **kw):
+        if self._replaying:
+            return
+        node = kw.pop('ref_node', None)
+        if node is not None:
+            kw['ref'] = node.ref()
         kw['what'] = what
         kw['tab'] = self.current
         kw['at'] = datetime.datetime.now().isoformat(timespec='seconds')
@@ -147,6 +286,8 @@ class Session(object):
         self.flush()
 
     def flush(self):
+        if self._replaying:
+            return
         path = os.path.join(self.folder, 'session.json')
         tmp = path + '.part'
         with open(tmp, 'w') as fh:
@@ -257,7 +398,7 @@ class Session(object):
         with captured(self.log):
             flags.click(self.agfr, node, col)
             self._mirror()
-        self._event('check', node=node.label, key=node.key, column=column,
+        self._event('check', ref_node=node, node=node.label, key=node.key, column=column,
                     state=node.check_state(col))
         return self.view()
 
@@ -268,7 +409,7 @@ class Session(object):
         with captured(self.log):
             flags.choose_altloc(self.agfr, self.profile, node, index)
             self._mirror()
-        self._event('altloc', node=node.label, key=node.key,
+        self._event('altloc', ref_node=node, node=node.label, key=node.key,
                     altloc=node.altloc['alts'][node.altloc['current']])
         return self.view()
 
@@ -285,7 +426,7 @@ class Session(object):
             if asu is not None:
                 asu.setCharges([v] * len(asu))
             self._mirror()
-        self._event('charge', node=node.label, key=node.key, charge=v)
+        self._event('charge', ref_node=node, node=node.label, key=node.key, charge=v)
         d = self.view()
         d['value'] = v
         return d
@@ -295,7 +436,7 @@ class Session(object):
         with captured(self.log):
             flags.set_sc_completion(self.agfr, self.profile, node, act)
             self._prune_rotamers()
-        self._event('sidechain', node=node.label, key=node.key, action=act)
+        self._event('sidechain', ref_node=node, node=node.label, key=node.key, action=act)
         return self.view(full=True)
 
     def mutate(self, nid, choice):
@@ -303,7 +444,7 @@ class Session(object):
         with captured(self.log):
             flags.mutate(self.agfr, self.profile, node, choice)
             self._prune_rotamers()
-        self._event('mutate', node=node.label, key=node.key, choice=choice)
+        self._event('mutate', ref_node=node, node=node.label, key=node.key, choice=choice)
         return self.view(full=True)
 
     def mutate_options(self, nid):
@@ -330,11 +471,11 @@ class Session(object):
             flags.invalidate(self.agfr)
         rot = 'auto' if choice < 0 else choice + 1
         last = self.events[-1] if self.events else {}
-        if last.get('what') == 'rotamer' and last.get('key') == node.key:
+        if last.get('what') == 'rotamer' and last.get('key') == node.key and not self._replaying:
             last['rotamer'] = rot          # one event per residue, not per wheel step
             self.flush()
         else:
-            self._event('rotamer', node=node.label, key=node.key, rotamer=rot)
+            self._event('rotamer', ref_node=node, node=node.label, key=node.key, rotamer=rot)
         return {'pdb': pdb, 'index': index, 'message': node.rotamer.message(index),
                 'auto': node.rotamer.best}
 
@@ -354,7 +495,7 @@ class Session(object):
             flags.invalidate(self.agfr)
             self._rebuild()
         sub = self.profile._substitutions.get(node.key)
-        self._event('substitute', node=node.label, key=node.key,
+        self._event('substitute', ref_node=node, node=node.label, key=node.key,
                     element=sub[0] if sub else None, charge=sub[1] if sub else None)
         return self.view(full=True)
 
@@ -429,6 +570,8 @@ class Session(object):
                  'substitutions': dict((k, list(v)) for k, v in
                                        self.profile._substitutions.items()),
                  'log': log}
+        entry['after_event'] = len(self.events)       # for restore: replay up to here
+        entry['state_md5'] = self._state_md5()        # ... and check the state
         if kind == 'receptor':
             # residues dropped for an atom type AD4.1 does not have
             entry['left_out'] = dict(self.profile._leftOut)

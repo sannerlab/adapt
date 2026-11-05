@@ -104,6 +104,17 @@ class Node(object):
                 if c.check_state(col) is not None:
                     c.set_state(col, value)
 
+    def ref(self):
+        """How to find this node again in a rebuilt tree (a restored session):
+        a residue by its key, anything else by the labels from its chain."""
+        if self.key:
+            return {'key': self.key}
+        path, n = [], self
+        while n is not None:
+            path.insert(0, n.label)
+            n = n.parent
+        return {'path': path}
+
     def leaves(self):
         if not self.children:
             yield self
@@ -148,6 +159,26 @@ class Tree(object):
 
     def _newid(self):
         return self.session._newid()
+
+    def walk(self):
+        stack = list(reversed(self.roots))
+        while stack:
+            n = stack.pop()
+            yield n
+            stack.extend(reversed(n.children))
+
+    def resolve(self, ref):
+        """The node Node.ref() described, or None."""
+        if ref.get('key'):
+            return next((n for n in self.walk() if n.key == ref['key'] and n.kind != 'atom'), None)
+        level = self.roots
+        node = None
+        for label in ref.get('path', []):
+            node = next((n for n in level if n.label == label), None)
+            if node is None:
+                return None
+            level = node.children
+        return node
 
     def header(self):
         return self._mol.name + ' receptor'

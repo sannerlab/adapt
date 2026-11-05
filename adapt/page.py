@@ -23,6 +23,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
   <form id=fetchform class=fetch title="Download an entry from the RCSB (files.rcsb.org) by its PDB id">
     <input id=pdbcode placeholder="PDB id" maxlength=4 size=6 spellcheck=false autocomplete=off>
     <button id=fetchbtn>Fetch from RCSB</button></form>
+  <button id=recentbtn title="Reopen a session: the ones this server holds, and those recorded in its output folder">Recent&hellip;</button>
   <span id=pdblabel class=dim>or drop a PDB file anywhere on the page</span>
   <span class=grow></span>
   <span id=envnote class=dim></span>
