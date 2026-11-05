@@ -42,6 +42,7 @@ def check():
     else:
         from ADFR import recFromPDB
         if not (hasattr(recFromPDB.PDBProfiler, 'chooseAltloc')
+                and hasattr(recFromPDB.PDBProfiler, 'completeSidechain')
                 and hasattr(recFromPDB, 'ccdIonCharge')):
             missing.append('ADFR 0.0.23 or later (this one, %s, predates the fixes '
                            'ADapt relies on)' % _dist(os.path.dirname(os.path.abspath(

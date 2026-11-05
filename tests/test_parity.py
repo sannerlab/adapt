@@ -195,3 +195,18 @@ def test_ion_charge_matches_command_line():
     check('REMARK 850 AGFR custom charge for A:ZN:401: = 1.5000' in web)
     zn_line = [l for l in web if l[17:20] == ' ZN'][0]
     check(float(zn_line[70:76]) == 1.5, zn_line)
+
+
+def test_side_chain_as_is_matches_command_line():
+    """A side chain kept as is == agfr --sidechainsAsIs, header included (the
+    command line had no option for it, so such a receptor could not be rebuilt
+    from the command line)."""
+    s = session('6ggd.pdb', 'asis')
+    s.switch('ASU')
+    s.sidechain(find(s.tree(), key='A:LYS:120:_')[0].id, 'asis')
+    web = read(_save(s, 'receptor')[0]).decode().splitlines()
+    ref = read(oracle_receptor('6ggd.pdb', outdir('oracle_asis'), bioMol='ASU',
+                               sidechainsAsIs='A:LYS:120:')).decode().splitlines()
+    diff = [(a, b) for a, b in zip(web, ref) if a != b]
+    check(len(web) == len(ref) and not diff, (len(web), len(ref), diff[:3]))
+    check('REMARK 850 AGFR side chain completed A:LYS:120:_' not in web)
