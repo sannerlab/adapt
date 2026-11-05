@@ -9,6 +9,23 @@ corrected; <a href="differences.html">ADapt and AGFRgui</a> lists them. What rem
 behaviour by design. The <b>Origin</b> column says whether it is ADFR's, which ADapt shares
 because it runs ADFR's own code, or ADapt's.</p>
 
+<h2>What is written into the files</h2>
+<table>
+<tr><th>Issue</th><th>Effect</th><th>Origin</th><th>Details</th></tr>
+<tr><td><b>A rebuilt loop is one model</b></td><td>A gap's residues are built once, from one
+seed, without knowledge of the binding site; the loop is a plausible conformation with sane
+geometry, not the loop's position. A missing loop near the site is still a reason to choose
+another copy, assembly or entry.</td><td>ADapt</td><td><a
+href="case-missing-residues.html#rebuild">Rebuilding a gap</a></td></tr>
+<tr><td><b>Some gaps cannot be rebuilt</b></td><td>Missing termini are not offered, nor gaps
+whose residues REMARK 465 does not list, gaps with a modified residue other than MSE, and gaps
+whose loop fails the geometry checks (4A1X B: GK). The tree gives the reason.</td><td>ADapt</td><td><a
+href="case-missing-residues.html#rebuild">Rebuilding a gap</a></td></tr>
+<tr><td><b>Rebuilt residues are not in ligands</b></td><td>A gap is filled in the receptor only;
+a chain written as a ligand keeps its gap.</td><td>ADapt</td><td><a
+href="case-missing-residues.html#rebuild">Rebuilding a gap</a></td></tr>
+</table>
+
 <h2>What the files record about themselves</h2>
 <table>
 <tr><th>Issue</th><th>Effect</th><th>Origin</th><th>Details</th></tr>

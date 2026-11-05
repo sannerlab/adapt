@@ -95,8 +95,22 @@ His tag, `GSHHHHHH`). In the 3D view each gap is a dotted orange line from the C
 before it to the N of the residue after it, with a sphere at its middle labelled with the missing
 residues; a missing end is a sphere 3 A beyond the terminal atom. Clicking a gap highlights the
 residues on either side of it, clicking a missing end the residue it is missing from. The ASU tab shows all four chains' stretches (8 markers); Biomol 1 and
-Biomol 2 show their own two chains'. Missing residues are information: nothing is rebuilt, and
-the PDBQT files are the same with or without them.
+Biomol 2 show their own two chains'. By default missing residues are information: nothing is
+rebuilt, and the PDBQT files are the same with or without them.
+
+**Rebuilding a gap**, on request: a gap inside a chain has a **rebuild** box in its params column.
+Ticking it builds the residues REMARK 465 lists, with REMARK 465's names and numbers (heavy atoms
+placed by PDBFixer, then refined in Amber ff14SB through OpenMM with every observed atom fixed;
+`adapt/loops.py`), draws them with magenta carbons, and writes them with the receptor in chain
+order, where `reduce` protonates them with everything else. The loop is checked (C to N 1.30 to
+1.37 A, CA to CA 3.70 to 3.95 A, trans peptide bonds, L and undistorted CA atoms, no heavy atom
+closer than 2.5 A to an observed one); up to three seeds are tried, and a gap no loop passes for
+is refused with the reason in the tree. On 4A1X, chain A's GKGG is rebuilt; chain B's GK is refused:
+its two residues cannot close the gap. Missing termini are not offered. The receptor's header
+gets `REMARK 850 AGFR rebuilt A:GLY:-2:_ to A:GLY:1:_ (GKGG) using PDBFixer 1.8.1 and Amber ff14SB,
+seed 1`; with nothing ticked the files are byte for byte what they were. A rebuilt loop is one
+model, built without knowledge of the binding site: a missing loop near the site is still a
+reason to choose another copy or entry. Details: `docs/case-missing-residues.html#rebuild`.
 
 A first session with 6GGD, following ADFR's `testAGFR.py` test2:
 
@@ -130,7 +144,7 @@ Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`
 
 - the input PDB, under its own name, because ADFR reads the PDB id from it to look up the known ligands;
 - `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten. A receptor save holds `<id>_rec.pdbqt` and `<id>_rec_H.pdb`: the receptor as `reduce` protonated it, with every hydrogen (non-polar ones included), the PDBQT's `REMARK 850` header, then `reduce`'s output, including its `USER  MOD` lines (each His/Asn/Gln decision: protonation, flip, score, category K/F/C/X). ADFR keeps that output (`runAGFR.reduceOutput`, `reduceChainRenames`) and `adapt/reduce_log.py` parses it. The one change to `reduce`'s text: its added hydrogens all have serial number 0, so ADapt numbers every atom 1..N in file order (hexadecimal from the 100,000th, as ProDy does);
-- `session.json`, which records the input md5, the ADFR and MolKit2 package versions and the md5 of their sources that ran, the ADapt version and commit, every edit in order (with a reference to its tree node), and every file written with its md5 and a checksum of the tree's state. A session is reopened from this record (`Session.restore`): the edits are replayed and each save's state checked, and a changed input or a mismatch is refused. A receptor save also records `reduce`: its version, its His/Asn/Gln `decisions` (`{"residue": "L:HIS:198:_", "decision": "no HD1", "score": 0.771, "category": "K", ...}`) and the `chain_renames` made for symmetry copies (`{"2": {"segment": "C", "chain": "A"}}`).
+- `session.json`, which records the input md5, the ADFR and MolKit2 package versions and the md5 of their sources that ran, the ADapt version and commit, every edit in order (with a reference to its tree node), and every file written with its md5 and a checksum of the tree's state. A session is reopened from this record (`Session.restore`): the edits are replayed and each save's state checked, and a changed input or a mismatch is refused. A receptor save also records `reduce`: its version, its His/Asn/Gln `decisions` (`{"residue": "L:HIS:198:_", "decision": "no HD1", "score": 0.771, "category": "K", ...}`) and the `chain_renames` made for symmetry copies (`{"2": {"segment": "C", "chain": "A"}}`). A receptor save with rebuilt gaps records each gap and copy under `rebuilt`: its residues, method, versions, seed, platform, and the geometry measured on it (every new peptide bond's C to N, CA to CA and omega, each new CA's improper, the closest contact).
 
 ## Embedding ADapt
 
@@ -154,7 +168,9 @@ For a program that starts ADapt (as ADCP_docking does); details in `docs/start.h
   mmCIF input, and gzipped PDB files keep their header; the header names the biomolecule and the
   ligand's residues, reports ion charges as written, and lists only residues of the file; new
   options `--altlocs`, `--rotamers`, `--sidechainsAsIs`, `--substitute`.
-- **Only in ADapt:** symmetry copies follow every choice made on their original chain
+- **Only in ADapt:** a gap inside a chain can be rebuilt on request (PDBFixer, then Amber ff14SB
+  with the observed atoms fixed; checked, seeded, recorded in a `REMARK 850 AGFR rebuilt` line;
+  `adapt/rebuild.py`, `adapt/loops.py`); symmetry copies follow every choice made on their original chain
   (`adapt/copies.py`; a ligand is taken from the original only; copies on a symmetry axis are
   written once); `<id>_rec_H.pdb` with `reduce`'s His/Asn/Gln choices; the session record and
   restore; and fixes of AGFRgui's GUI defects: an edited charge is used (AGFRgui dropped the spin
@@ -167,6 +183,7 @@ For a program that starts ADapt (as ADCP_docking does); details in `docs/start.h
 All of them, with details and links, are in `docs/known-issues.html`. Unless marked ADapt, they
 are ADFR's behaviour, shared by `agfr` and AGFRgui.
 
+- **(ADapt) A rebuilt loop is one model**, built from one seed without knowledge of the binding site. Some gaps are not offered (termini; residues REMARK 465 does not list; a modified residue other than MSE), and some are refused after building (4A1X B: GK cannot close its gap). Rebuilt residues go into the receptor only, never a ligand.
 - **Symmetry copies get new chain identifiers** (`0`, `1`, …) in the receptor files (PDBQT, and the atoms and `USER  MOD` lines of `_rec_H.pdb`); ADFR does not rename them back after `reduce`. ADapt records the renames in `session.json` (`reduce.chain_renames`).
 - **A ligand's atom records say chain `A`** whatever chain it came from; the header's `REMARK 850 AGFR ligand from B:EYB:402:_` records the true origin.
 - **(ADapt) Some choices are in the session record only:** which hetero groups were kept, and ADapt's version, are in `session.json`, not in the PDBQT header.

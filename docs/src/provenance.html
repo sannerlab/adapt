@@ -70,6 +70,12 @@ href="case-metals.html#replace">replacing an ion</a>.</td></tr>
 receptor but <b>dropped</b> when the file was written, because it has atoms AutoDock 4.1 cannot
 type.</td><td>ADapt leaves such residues out by default; the line appears when one was kept
 anyway (<code>agfr --heteroToKeep</code>).</td></tr>
+<tr><td><code>rebuilt A:GLY:-2:_ to A:GLY:1:_ (GKGG) using PDBFixer 1.8.1 and Amber ff14SB, seed
+1</code></td><td>Each <b>gap whose missing residues were built</b>: the first and last new
+residue, their sequence, the programs that placed and refined them, and the seed.</td><td>Added
+by ADapt, only for gaps you chose to rebuild, once per gap however many copies of the chain the
+assembly has. The new atoms have occupancy 1.00 and B-factor 0.00. See <a
+href="case-missing-residues.html#rebuild">rebuilding a gap</a>.</td></tr>
 <tr><td><code>protonated using reduce</code></td><td>Hydrogens were added by
 <code>reduce</code>.</td><td></td></tr>
 <tr><td><code>partial charge assigned using OpenBabel Gasteiger model</code></td><td>Partial
@@ -123,8 +129,8 @@ grep 'AGFR altlocs' 6ggd_rec.pdbqt                  # the conformations that wer
 grep -E 'AGFR (rotamer|substituted|left out)' 6ggd_rec.pdbqt</pre>
 
 <h2>Rebuilding a receptor from its header</h2>
-<p>Every record corresponds to an option of ADFR's command line, so a receptor can be rebuilt
-without ADapt:</p>
+<p>Every record but <code>rebuilt</code> corresponds to an option of ADFR's command line, so a
+receptor without rebuilt gaps can be rebuilt without ADapt:</p>
 <table>
 <tr><th>Record</th><th>Option of <code>python -m ADFR.bin.runAGFR -r &lt;file&gt; --toPdbqt</code></th></tr>
 <tr><td><code>biomolecule Biomol 2: …</code></td><td><code>--bioMol 2</code> (<code>--bioMol ASU</code>
@@ -143,6 +149,7 @@ for the asymmetric unit)</td></tr>
 <tr><td><code>rotamer D:ARG:100:_ ARG 3 of 81</code></td><td><code>--rotamers "D:ARG:100::3"</code></td></tr>
 <tr><td><code>substituted A:CU:100:_ CU -&gt; ZN charge 2.00</code></td><td><code>--substitute
 "A:CU:100::ZN:2.0"</code></td></tr>
+<tr><td><code>rebuilt …</code></td><td>no option: rebuilt gaps need ADapt</td></tr>
 </table>
 <p>Which hetero groups were kept is not in the header (below), but <code>session.json</code> has
 it. ADapt's tests check the correspondence: for the same choices, the receptor ADapt writes is

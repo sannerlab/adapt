@@ -319,6 +319,28 @@ def gaps(p):
     p.shot('gaps_biomol1')
 
 
+def rebuild(p):
+    """4A1X: chain A's gap GKGG rebuilt (Biomol 1); chain B's gap GK, whose two
+    residues cannot close it, refused with its reason (Biomol 2)."""
+    p.fetch('4A1X', 'Biomol 1')
+    p.js("DOC.collapseAll()")
+    g = p.node('A', 'missing residues', 'gap:')
+    p.node('C', 'missing residues')
+    p.js('DOC.select(%s)' % g)
+    p.idle(1.0)
+    p.js("%s.querySelector(':scope>.row .params input').click()" % g)
+    p.idle(1.0)
+    p.shot('rebuild_4a1x')
+    p.tab('Biomol 2')
+    p.js("DOC.collapseAll()")
+    g = p.node('B', 'missing residues', 'gap:')
+    p.js("%s.querySelector(':scope>.row .params input').click()" % g)
+    p.idle()
+    p.js('DOC.show(%s)' % p.node('B', 'missing residues', 'gap:'))
+    p.idle(0.3)
+    p.shot('rebuild_refused', 'left')
+
+
 def mutations(p):
     p.fetch('6GGD', 'Biomol 2')
     p.js("DOC.collapseAll()")
@@ -360,7 +382,7 @@ def saving(p):
 
 
 SCENES = [overview, link, biomolecule, assemblies, sidechains, altlocs, ligand, charges,
-          unknown, gaps, mutations, saving]
+          unknown, gaps, rebuild, mutations, saving]
 
 
 def main(argv):

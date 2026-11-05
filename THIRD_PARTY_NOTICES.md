@@ -58,3 +58,46 @@ here, and each user installs it. These files are derived from ADFR (`adfr-0.0.22
 - `adapt/gaps.py` ports the drawing of missing residues of the grid GUI (`ADFR/GUI/gridGUI.py:addGeomsForGaps`).
 
 ADFR is developed at the Scripps Research Institute; see the ADFR distribution for its licence.
+
+## PDBFixer and OpenMM (used; not included)
+
+`adapt/loops.py` builds the residues of a gap the user chose to rebuild with PDBFixer 1.8.1
+(`PDBFixer.addMissingAtoms`) and refines them with OpenMM 7.6.0 and its Amber ff14SB parameter
+files (`amber14/protein.ff14SB.xml`), all as installed in the ADCP distribution's `adcpsuite`
+environment. No PDBFixer or OpenMM code is copied into ADapt; both are imported, and only when a
+gap is rebuilt. PDBFixer's licence (from its installed `LICENSE`):
+
+```
+This is part of the OpenMM molecular simulation toolkit originating from
+Simbios, the NIH National Center for Physics-Based Simulation of
+Biological Structures at Stanford, funded under the NIH Roadmap for
+Medical Research, grant U54 GM072970. See https://simtk.org.
+
+Portions copyright (c) 2013 Stanford University and the Authors.
+Authors: Peter Eastman
+Contributors:
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS, CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+OpenMM is distributed under the MIT licence and, for parts of its C++ library, the GNU LGPL; see
+the OpenMM distribution. Eastman P, et al. OpenMM 7: rapid development of high performance
+algorithms for molecular dynamics. *PLoS Comput Biol* 13(7):e1005659, 2017. Maier JA, et al.
+ff14SB: improving the accuracy of protein side chain and backbone parameters from ff99SB.
+*J Chem Theory Comput* 11(8):3696, 2015.

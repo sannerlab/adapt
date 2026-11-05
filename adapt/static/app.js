@@ -21,6 +21,10 @@ let VIEW = null, MODEL = null, ROT = null;
 let STRUCT = {};         // tab -> {pdb, n}
 let SEL = null;          // selected node id
 let HL = null;           // {indices, scheme}: what is highlighted, kept across repaints
+let REBUILT = [];        // rebuilt residues drawn: [{gap, segment, pdb, joins, ...}]
+let REBDRAWN = [];       // their 3Dmol models, shapes and labels
+let GAPDRAWN = [];       // the gap markers' shapes and labels
+let LOADING = null;      // the structure being loaded (drawing waits for it)
 
 /* ---------------------------------------------------------------- api */
 let busyTimer = null;
@@ -155,8 +159,8 @@ function showTab(d){
   renderTabs();
   TREE = d.tree;
   renderTree();
+  loadStructure(TAB);     // first: the rebuilt residues are drawn once it is loaded
   applyView(d);
-  loadStructure(TAB);
 }
 
 /* ---------------------------------------------------------------- tree */
@@ -191,6 +195,13 @@ function makeNode(n, depth){
     + '<div class=lig><input type=checkbox class=cb data-col=lig></div></div>';
   if(n.id === SEL) li.firstChild.classList.add('sel');
   params(li.querySelector('.params'), n);
+  if(n.rebuild && n.rebuild.why){
+    const why = document.createElement('div');
+    why.className = 'why';
+    why.style.paddingLeft = (depth * 14 + 34) + 'px';
+    why.textContent = 'not rebuilt: ' + n.rebuild.why;
+    li.appendChild(why);
+  }
   if(kids.length){
     if(isOpen(n)) li.appendChild(childList(n, depth));
     else li.classList.add('closed');
@@ -234,8 +245,17 @@ function paintStates(){
   }
 }
 
-/* the params column: altloc radios, manual charge, rotamer preview */
+/* the params column: altloc radios, manual charge, rotamer preview, rebuild box */
 function params(cell, n){
+  if(n.rebuild && !n.rebuild.why){
+    const lab = document.createElement('label');
+    lab.className = 'rebuild';
+    lab.title = 'Build the missing residues of this gap (PDBFixer, then Amber ff14SB with the '
+      + 'observed atoms fixed). They are drawn with magenta carbons and written with the receptor.';
+    lab.innerHTML = '<input type=checkbox' + (n.rebuild.on ? ' checked' : '') + '> rebuild';
+    lab.firstChild.onchange = () => rebuild(n, lab.firstChild.checked);
+    cell.appendChild(lab);
+  }
   if(n.altloc){
     n.altloc.alts.forEach((a, i) => {
       const lab = document.createElement('label');
@@ -421,6 +441,11 @@ function applyView(d){
     $('showother').disabled = !d.buttons.other;
   }
   if(d.atoms != null){ ATOMS = d.atoms; restyle(); }
+  // rebuilt residues: those that came with the answer, else the server's
+  // current ones while any gap of this tab is chosen (an edit may move them)
+  if(d.rebuilt) drawRebuilt(d.rebuilt);
+  else if(d.rebuild) refreshRebuilt();
+  else if(REBUILT.length) drawRebuilt([]);
 }
 
 async function show(what, scheme){
@@ -475,7 +500,11 @@ function viewer(){
   return VIEW;
 }
 
-async function loadStructure(tab){
+function loadStructure(tab){
+  LOADING = loadStructureNow(tab);
+  return LOADING;
+}
+async function loadStructureNow(tab){
   if(!STRUCT[tab]){
     const d = await api('api/structure?s=' + S.session + '&tab=' + encodeURIComponent(tab));
     if(d.error) return;
@@ -483,7 +512,7 @@ async function loadStructure(tab){
   }
   if(tab !== TAB) return;
   const v = viewer();
-  v.clear(); ROT = null;
+  v.clear(); ROT = null; REBUILT = []; REBDRAWN = []; GAPDRAWN = [];
   const d = STRUCT[tab];
   HL = null;                     // its indices belonged to the previous molecule
   MODEL = v.addModel(d.pdb, 'pdb', {altLoc: '*', keepH: true});
@@ -503,17 +532,83 @@ async function loadStructure(tab){
 const GAP_COLOR = '#ffa600';
 function drawGaps(gaps){
   const v = viewer();
+  for(const x of GAPDRAWN) x.label ? v.removeLabel(x.label) : v.removeShape(x.shape);
+  GAPDRAWN = [];
+  // a gap whose residues are drawn rebuilt has no marker
+  const built = new Set(REBUILT.filter(r => r.segment === 'A').map(r => r.gap));
   for(const g of gaps){
+    if(g.key && built.has(g.key)) continue;
     const [p, q] = g.line.map(c => ({x: c[0], y: c[1], z: c[2]}));
-    v.addCylinder({start: p, end: q, radius: 0.07, color: GAP_COLOR, dashed: true,
-                   dashLength: 0.35, gapLength: 0.25, fromCap: 1, toCap: 1});
+    GAPDRAWN.push({shape: v.addCylinder({start: p, end: q, radius: 0.07, color: GAP_COLOR, dashed: true,
+                   dashLength: 0.35, gapLength: 0.25, fromCap: 1, toCap: 1})});
     const c = {x: g.sphere[0], y: g.sphere[1], z: g.sphere[2]};
-    v.addSphere({center: c, radius: 0.3, color: GAP_COLOR});
-    v.addLabel((g.kind === 'gap' ? '' : g.kind + ' term: ') + g.label,
+    GAPDRAWN.push({shape: v.addSphere({center: c, radius: 0.3, color: GAP_COLOR})});
+    GAPDRAWN.push({label: v.addLabel((g.kind === 'gap' ? '' : g.kind + ' term: ') + g.label,
                {position: c, fontSize: 11, fontColor: '#8a5300', backgroundColor: '#fff3d6',
                 backgroundOpacity: 0.85, borderThickness: 0, inFront: true,
-                alignment: 'bottomLeft'});
+                alignment: 'bottomLeft'})});
   }
+}
+
+/* rebuilt residues (adapt/rebuild.py): sticks with magenta carbons, their two
+   joins to the residues either side, and a label with their sequence; in a
+   symmetry copy, or when they will not be written, translucent. The preview is
+   the molecule a save writes. */
+const REB_COLOR = '#d633d6';
+function drawRebuilt(list){
+  const v = viewer();
+  for(const x of REBDRAWN)
+    x.model ? v.removeModel(x.model) : x.label ? v.removeLabel(x.label) : v.removeShape(x.shape);
+  REBDRAWN = [];
+  REBUILT = list || [];
+  for(const r of REBUILT){
+    const faint = r.segment !== 'A' || !r.written;
+    const m = v.addModel(r.pdb, 'pdb');
+    v.setStyle({model: m}, {stick: {colorscheme: 'magentaCarbon', radius: 0.2, opacity: faint ? 0.5 : 1}});
+    REBDRAWN.push({model: m});
+    for(const [p, q] of r.joins)
+      REBDRAWN.push({shape: v.addCylinder({start: {x: p[0], y: p[1], z: p[2]}, end: {x: q[0], y: q[1], z: q[2]},
+                                           radius: 0.2, color: REB_COLOR, opacity: faint ? 0.5 : 1})});
+    if(r.segment === 'A'){
+      const ca = m.selectedAtoms({atom: 'CA'});
+      const at = ca[Math.floor(ca.length / 2)];
+      if(at) REBDRAWN.push({label: v.addLabel('rebuilt: ' + r.sequence,
+          {position: {x: at.x, y: at.y, z: at.z}, fontSize: 11, fontColor: '#7a1f7a',
+           backgroundColor: '#fbe3fb', backgroundOpacity: 0.85, borderThickness: 0,
+           inFront: true, alignment: 'bottomLeft'})});
+    }
+  }
+  if(STRUCT[TAB]) drawGaps(STRUCT[TAB].gaps || []);
+  v.render();
+}
+
+/* the server's rebuilt residues for this tab, drawn once the structure is */
+async function refreshRebuilt(){
+  if(LOADING) await LOADING;
+  const d = await api('api/rebuilt?s=' + S.session + '&tab=' + encodeURIComponent(TAB), null, null, true);
+  if(d.error) return;
+  if(d.tree){ TREE = d.tree; renderTree(); }
+  drawRebuilt(d.rebuilt);
+  if(d.refused && d.refused.length) status('<span class=bad>' + d.refused.map(esc).join('<br>') + '</span>');
+}
+
+/* the rebuild box of a gap */
+async function rebuild(n, on){
+  status((on ? 'building ' : 'removing ') + esc(n.label) + '&hellip;');
+  const d = await api('api/rebuild', {s: S.session, node: n.id, on: on});
+  if(d.error){ renderTree(); return; }
+  TREE = d.tree; renderTree();
+  applyView(d);
+  if(d.refused.length){ status('<span class=bad>' + d.refused.map(esc).join('<br>') + '</span>'); return; }
+  const r = REBUILT.find(x => x.gap === n.rebuild.key && x.segment === 'A');
+  if(on && r){
+    const g = r.geometry;
+    status(esc(n.label) + ' rebuilt (magenta): C to N ' + g['C-N'][0].toFixed(2) + ' to ' + g['C-N'][1].toFixed(2)
+      + ' A, CA to CA ' + g['CA-CA'][0].toFixed(2) + ' to ' + g['CA-CA'][1].toFixed(2)
+      + ' A, closest contact ' + g.contact.toFixed(2) + ' A'
+      + (r.written ? ' <span class=dim>(written with the receptor)</span>'
+                   : ' <span class=bad>(not written: the residues either side are not both in the receptor)</span>'));
+  } else status(esc(n.label) + (on ? ' rebuilt' : ' will not be rebuilt'));
 }
 
 /* receptor grey carbons, ligand orange sticks, the rest purple; symmetry

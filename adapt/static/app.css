@@ -59,6 +59,7 @@ button.plain{border:0;background:none;font-size:16px}
 .params select{font:inherit;max-width:140px}
 .params label{white-space:nowrap}
 .hasmenu .lab{text-decoration:underline dotted var(--dim)}
+.why{font-size:11px;color:var(--dim);font-style:italic;padding:0 4px 3px 0;white-space:normal;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 .closed>ul{display:none}
 .bar{display:flex;gap:6px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);flex-wrap:wrap}
 #viewer{flex:1;position:relative;min-height:300px;border-radius:8px 8px 0 0;overflow:hidden}

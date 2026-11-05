@@ -20,6 +20,7 @@ from collections import OrderedDict
 from ADFR.recFromPDB import getResidueKey, getResidueKeyAlt
 
 from . import copies
+from .gaps import key as gapkey
 
 CHECKED, PARTIAL, UNCHECKED = 'checked', 'partial', 'unchecked'
 REC, LIG = 0, 1          # our two check columns (Qt columns 0 and 2)
@@ -52,11 +53,13 @@ class Node(object):
     live     : clicking it changes flags (onClick needs _pmvObj + checkable;
                the whole "unknown atom types" subtree is inert here, see
                flags.py)
+    rebuild  : ADapt, an internal gap: {'key', 'on', 'why'} for its rebuild
+               box (rebuild.py); None for every other node
     """
     __slots__ = ('id', 'label', 'parent', 'children', 'sel', 'gapsel',
                  'state', 'tristate', 'checkable', 'live', 'kind', 'key',
                  'altloc', 'charge', 'rotamer', 'menu', 'expanded', 'resname',
-                 'resnum', 'icode')
+                 'resnum', 'icode', 'rebuild')
 
     def __init__(self, tree, label, parent=None, kind='item'):
         self.id = tree._newid()
@@ -79,6 +82,7 @@ class Node(object):
         self.menu = None             # 'sc' | 'mutate' | 'substitute' | None
         self.expanded = False
         self.resname = self.resnum = self.icode = None
+        self.rebuild = None
 
     # ---- Qt check-state semantics -------------------------------------
     def check_state(self, col):
@@ -135,6 +139,8 @@ class Node(object):
             d['charge'] = self.charge
         if self.rotamer is not None:
             d['rotamer'] = self.rotamer.describe()
+        if self.rebuild is not None:
+            d['rebuild'] = self.rebuild
         if self.children:
             d['children'] = [c.to_json() for c in self.children]
         return d
@@ -378,6 +384,12 @@ class Tree(object):
                      '--%s%d' % (r2Name, r2Num), misResItem, kind='gap')
             a, b = sel(r1Num, r1Icode), sel(r2Num, r2Icode)
             g.gapsel = a + b if (a is not None and b is not None) else (a or b)
+            # ADapt: the box that asks for this gap to be rebuilt (rebuild.py);
+            # missing termini get none
+            rb = self.session.rebuilder
+            key = gapkey(chid, gap[0], gap[-1])
+            if key in rb.gaps:
+                g.rebuild = {'key': key, 'on': key in rb.chosen, 'why': rb.gaps[key].why}
         if len(chgaps[2]):
             c = Node(self, 'C term: %s' % chgaps[2][1], misResItem, kind='gap')
             cName, cNum, cIcode = chgaps[2][0]

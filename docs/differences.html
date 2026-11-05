@@ -41,9 +41,9 @@ completion, mutations, protonation, charges and PDBQT writing are all ADFR's own
 the ADCP distribution (<code>adfr</code> 0.0.23 or later, with <code>MolKit2</code> 0.0.6; ADapt
 refuses to start with an older ADFR). Only the Qt interface was rewritten. For the same choices,
 the receptor ADapt writes is byte-identical to the one ADFR's command line writes; ADapt's test
-suite checks this on ADFR's own test files. Every choice ADapt offers for the receptor has a
-command-line option, so a receptor can be rebuilt without ADapt from the choices
-<code>session.json</code> records:</p>
+suite checks this on ADFR's own test files. Every choice ADapt offers for the receptor except
+rebuilding a gap (ADapt's own, below) has a command-line option, so a receptor can be rebuilt
+without ADapt from the choices <code>session.json</code> records:</p>
 <table>
 <tr><th>Choice</th><th><code>agfr</code> option</th><th>Example</th></tr>
 <tr><td>Assembly</td><td><code>--bioMol</code></td><td><code>--bioMol 2</code></td></tr>
@@ -108,6 +108,11 @@ asparagine and glutamine.</li>
 <li><b>Sessions.</b> Every edit and every file written is recorded with checksums in
 <code>session.json</code>, and a session can be reopened, also after the server restarts
 (<b>Recent…</b>).</li>
+<li><b>A gap can be rebuilt.</b> On request, gap by gap, ADapt builds the missing residues of a gap
+inside a chain (PDBFixer, then Amber ff14SB with the observed atoms fixed), checks their
+geometry, and writes them with the receptor, recorded in a <code>REMARK 850 AGFR rebuilt</code>
+line. Nothing is rebuilt unless asked, and then the files are ADFR's. See
+<a href="case-missing-residues.html#rebuild">rebuilding a gap</a>.</li>
 <li><b>An edited ion charge is used.</b> AGFRgui's charge box was never read back, so the default
 charge was always written.</li>
 <li><b>A save after a tab switch writes the new tab.</b> AGFRgui kept the previous tab's molecule

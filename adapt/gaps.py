@@ -16,6 +16,15 @@ from . import copies
 BOND = 1.9     # A: neighbours of a terminal atom, found by distance (no bond table needed)
 
 
+def key(chid, first, last):
+    """'A:SER:-3:_ A:PRO:2:_': a gap named by the residues on either side of
+    it, each written as ADFR keys residues (getResidueKey, '_' for no icode).
+    `first` and `last` are [resname, resnum, icode], as _gaps gives them."""
+    def one(r):
+        return '%s:%s:%s:%s' % (chid, r[0], r[1], r[2] or '_')
+    return '%s %s' % (one(first), one(last))
+
+
 def _short(seq):
     """gridGUI's label rule: more than 10 residues -> first 3 ... last 3."""
     return seq if len(seq) <= 10 else seq[:3] + '...' + seq[-3:]
@@ -49,7 +58,8 @@ def geometry(gaps_per_chain, mol):
             p, q = c.getCoords()[0], n.getCoords()[0]
             out.append({'kind': 'gap', 'line': [p.tolist(), q.tolist()],
                         'sphere': ((p + q) / 2.).tolist(),
-                        'label': _short(''.join(gap[1:-1]))})
+                        'label': _short(''.join(gap[1:-1])),
+                        'key': key(chid, gap[0], gap[-1])})   # the page hides a rebuilt gap's marker
         for term, atname in ((chgaps[0], 'N'), (chgaps[-1], 'C')):
             if not len(term):
                 continue
