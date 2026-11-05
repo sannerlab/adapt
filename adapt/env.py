@@ -18,9 +18,10 @@ ADS_ROOT = os.path.realpath(os.path.join(os.path.dirname(sys.executable), '..'))
 os.environ.setdefault('ADS_ROOT', ADS_ROOT)
 os.environ.setdefault('PYTHONNOUSERSITE', 'disable')
 
-# the ADFR source files whose md5 identifies the computation that ran
+# the ADFR and MolKit2 source files whose md5 identifies the computation that ran
 _TRACKED = ('utils/runAGFR.py', 'recFromPDB.py', 'utils/ADprep.py',
             'GUI/pdbAnalyser.py', '__init__.py')
+_TRACKED_MOLKIT2 = ('openBabelInterface.py', 'AARotamer.py', 'molecule.py')
 
 
 def _md5(path):
@@ -46,30 +47,52 @@ def check():
     return missing
 
 
-def provenance():
-    """What produced a file: interpreter, ADFR package version, and the md5 of
-    the ADFR sources that do the work, so any output can be tied to its code."""
-    import ADFR
-    pkg = os.path.dirname(os.path.abspath(ADFR.__file__))
-    dist = sorted(glob.glob(os.path.join(os.path.dirname(pkg), 'adfr-*.dist-info')))
-    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _git(path, *args):
+    """Output of `git -C path args`, or None (not a checkout, no git)."""
     try:
-        commit = subprocess.run(['git', '-C', here, 'rev-parse', 'HEAD'],
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                universal_newlines=True).stdout.strip() or None
-        dirty = subprocess.run(['git', '-C', here, 'status', '--porcelain'],
-                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                               universal_newlines=True).stdout.strip() != ''
+        out = subprocess.run(['git', '--no-optional-locks', '-C', path] + list(args),
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             universal_newlines=True)
     except OSError:
-        commit, dirty = None, None
+        return None
+    return out.stdout.strip() if out.returncode == 0 else None
+
+
+def _dist(pkg, name):
+    """The installed distribution of package folder `pkg` ('adfr-0.0.22'), or,
+    for a source checkout used in development (ADAPT_DEV_PATH), its git
+    revision ('adfr-v0.0.22-3-g1a2b3c4-dirty (source)')."""
+    dist = sorted(glob.glob(os.path.join(os.path.dirname(pkg), name + '-*.dist-info')))
+    if dist:
+        return os.path.basename(dist[-1])[:-len('.dist-info')]
+    rev = _git(os.path.realpath(pkg), 'describe', '--tags', '--always', '--dirty')
+    return '%s-%s (source)' % (name, rev) if rev else None
+
+
+def _sums(pkg, files):
+    return {f: _md5(os.path.join(pkg, f)) for f in files
+            if os.path.isfile(os.path.join(pkg, f))}
+
+
+def provenance():
+    """What produced a file: interpreter, ADFR and MolKit2 versions, and the md5
+    of their sources that do the work, so any output can be tied to its code."""
+    import ADFR
+    import MolKit2
+    pkg = os.path.dirname(os.path.abspath(ADFR.__file__))
+    mk2 = os.path.dirname(os.path.abspath(MolKit2.__file__))
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    status = _git(here, 'status', '--porcelain')
     return {
         'python': sys.version.split()[0],
         'executable': sys.executable,
         'ADS_ROOT': os.environ.get('ADS_ROOT'),
         'adfr_package': pkg,
-        'adfr_dist': os.path.basename(dist[-1])[:-len('.dist-info')] if dist else None,
-        'adfr_md5': {f: _md5(os.path.join(pkg, f)) for f in _TRACKED
-                     if os.path.isfile(os.path.join(pkg, f))},
-        'adapt_commit': commit,
-        'adapt_dirty': dirty,
+        'adfr_dist': _dist(pkg, 'adfr'),
+        'adfr_md5': _sums(pkg, _TRACKED),
+        'molkit2_package': mk2,
+        'molkit2_dist': _dist(mk2, 'molkit2'),
+        'molkit2_md5': _sums(mk2, _TRACKED_MOLKIT2),
+        'adapt_commit': _git(here, 'rev-parse', 'HEAD'),
+        'adapt_dirty': None if status is None else status != '',
     }
