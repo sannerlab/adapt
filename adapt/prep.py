@@ -58,8 +58,6 @@ def receptor(session, folder):
         raise Nothing('no atoms selected for the receptor')
     charges = flags.charges(session.tree())
     session.profile._customCharges = charges        # PDBAnalyserWidget.getCharges
-    from . import reduce_log
-    reduce_log.LAST.clear()
     processed = agfr.processReceptor(atoms, charges=charges)
     path = os.path.join(folder, session.profile._pdbid + '_rec.pdbqt')
     # runAGFR.saveReceptorAsPDBQT, plus the biomolecule line after "source"
@@ -72,8 +70,9 @@ def receptor(session, folder):
     paths = [path]
     # the receptor as reduce protonated it: all hydrogens, non-polar ones too,
     # and reduce's choices (USER MOD lines), under the same provenance header
-    out = reduce_log.LAST.get('stdout')
+    out = agfr.reduceOutput
     if out:
+        from . import reduce_log
         pdb = os.path.join(folder, session.profile._pdbid + '_rec_H.pdb')
         header = _with_biomolecule(session.profile.getPDBQTHeaderLines(), session.tree())
         with open(pdb, 'w') as fh:

@@ -39,6 +39,13 @@ def check():
         import ADFR  # noqa: F401
     except ImportError:
         missing.append('ADFR (run with the adcpsuite python)')
+    else:
+        from ADFR import recFromPDB
+        if not (hasattr(recFromPDB.PDBProfiler, 'chooseAltloc')
+                and hasattr(recFromPDB, 'ccdIonCharge')):
+            missing.append('ADFR 0.0.23 or later (this one, %s, predates the fixes '
+                           'ADapt relies on)' % _dist(os.path.dirname(os.path.abspath(
+                               ADFR.__file__)), 'adfr'))
     reduce_bin = os.path.join(os.environ['ADS_ROOT'], 'bin', 'reduce')
     if not os.access(reduce_bin, os.X_OK):
         missing.append('reduce (%s)' % reduce_bin)

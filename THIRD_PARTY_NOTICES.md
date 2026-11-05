@@ -55,6 +55,6 @@ here, and each user installs it. These files are derived from ADFR (`adfr-0.0.22
 
 - `adapt/tree.py`, `adapt/flags.py` and `adapt/rotamer.py` port the logic of AGFRgui's PDB panel
   (`ADFR/GUI/pdbAnalyser.py`);
-- `adapt/gaps.py` contains a copy of `ADFR/recFromPDB.py:PDBProfiler._gaps`, with marked fixes.
+- `adapt/gaps.py` ports the drawing of missing residues of the grid GUI (`ADFR/GUI/gridGUI.py:addGeomsForGaps`).
 
 ADFR is developed at the Scripps Research Institute; see the ADFR distribution for its licence.

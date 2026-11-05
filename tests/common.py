@@ -55,17 +55,12 @@ def oracle_receptor(pdb, folder, **extra):
     kw = kw_base.copy()
     kw.update({'receptorFile': os.path.join(DATA, pdb), 'toPdbqt': True})
     kw.update(extra)
-    from adapt import gaps, reduce_log
     cwd = os.getcwd()
     os.chdir(folder)
-    gaps.uninstall()        # ADFR exactly as installed: its own _gaps
-    reduce_log.uninstall()  # and its own protonate
     try:
         with quiet():
             runAGFR()(**kw)
     finally:
-        gaps.install()
-        reduce_log.install()
         os.chdir(cwd)
     return os.path.join(folder, os.path.splitext(pdb)[0] + '_rec.pdbqt')
 

@@ -27,11 +27,6 @@ from .tree import CHECKED, LIG, REC, Tree
 # The page is one user's, so one lock costs nothing and removes every race.
 LOCK = threading.RLock()
 
-# ADFR's gap detection never fires (adapt/gaps.py); use the fixed copy
-gaps.install()
-# keep what reduce writes when a receptor is protonated (adapt/reduce_log.py)
-reduce_log.install()
-
 PDB_SUFFIXES = ('.pdb', '.ent', '.pdb.gz', '.ent.gz')
 
 
@@ -355,10 +350,10 @@ class Session(object):
                 files.append({'name': os.path.basename(p),
                               'md5': hashlib.md5(fh.read()).hexdigest()})
         reduce = None
-        if kind == 'receptor' and reduce_log.LAST.get('stdout'):
-            out = reduce_log.LAST['stdout']
+        out = getattr(self.agfr, 'reduceOutput', None)
+        if kind == 'receptor' and out:
             reduce = {'version': reduce_log.version(out),
-                      'chain_renames': reduce_log.chain_renames(reduce_log.LAST.get('taken')),
+                      'chain_renames': reduce_log.chain_renames(self.agfr.reduceChainRenames),
                       'decisions': reduce_log.decisions(out)}
         entry = {'n': n, 'kind': kind, 'tab': self.current,
                  'at': datetime.datetime.now().isoformat(timespec='seconds'),
