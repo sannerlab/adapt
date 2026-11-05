@@ -164,11 +164,12 @@ def overview(p):
     p.js("DOC.collapseAll(); DOC.open(DOC.chain('A')); DOC.open(DOC.chain('B'))")
     p.idle()
     p.badges([(1, '#openbtn', 0.5, 1, 0, 16), (2, '#fetchform', 0.5, 1, 0, 16),
-              (3, '#pdblabel', 0.5, 1, 0, 16), (4, '#tabs button:last-child', 1, 0.5, 18, 0),
-              (5, '#tree li.kind-chain .cb', 0, 0.5, -60, 22), (6, '#treehead span:nth-child(2)', 0, 0.5, -18, 0),
-              (7, '#treehead span:nth-child(3)', 1, 0.5, 20, 0), (8, '#showother', 1, 0.5, 18, 0),
-              (9, '#savelig', 0, 0, -8, -16), (10, '#viewer', 0, 0, 24, 24),
-              (11, '#status', 1, 0.5, -24, 0), (12, '#savesbox summary', 0, 0.5, 130, 0)])
+              (3, '#recentbtn', 0.5, 1, 0, 16),
+              (4, '#pdblabel', 0.5, 1, 0, 16), (5, '#tabs button:last-child', 1, 0.5, 18, 0),
+              (6, '#tree li li input[data-col=rec]', 1, 0.5, 80, 0), (7, '#treehead span:nth-child(2)', 0, 0.5, -18, 0),
+              (8, '#treehead span:nth-child(3)', 1, 0.5, 20, 0), (9, '#showother', 1, 0.5, 18, 0),
+              (10, '#savelig', 0, 0, -8, -16), (11, '#viewer', 0, 0, 24, 24),
+              (12, '#status', 1, 0.5, -24, 0), (13, '#savesbox summary', 0, 0.5, 130, 0)])
     p.shot('overview')
     p.unbadge()
 
@@ -244,8 +245,8 @@ def altlocs(p):
     p.idle(1.0)
     p.shot('altloc_group')
     ser = p.node('D', 'altloc', 'protein', "SER'19")
-    # SER19's locations tie at 0.50, so ADFR's default varies between runs:
-    # choose them by letter, B first, so the images always match the captions
+    # SER19's locations tie at 0.50 (default: A, the first letter); show B
+    # first, then A, choosing them by letter as a user would
     pick = ("(() => { const r = [...%s.querySelectorAll('.params label')]"
             ".find(l => l.textContent.trim().startsWith('%%s')).querySelector('input');"
             " if(!r.checked) r.click(); })()" % ser)
@@ -290,6 +291,16 @@ def unknown(p):
     p.js('DOC.select(%s)' % cu)
     p.idle(1.0)
     p.shot('unknown_cu')
+    p.js('DOC.context(%s)' % cu)
+    p.idle(0.5)
+    p.shot('unknown_cu_menu', "document.getElementById('menu')", pad=40)
+    p.js("DOC.menu('ZN')")
+    p.idle(1.0)
+    p.js("DOC.collapseAll()")
+    zn = p.node('A', 'manual charges', "CU'100")
+    p.js('DOC.select(%s)' % zn)
+    p.idle(1.0)
+    p.shot('cu_zn')
 
 
 def gaps(p):

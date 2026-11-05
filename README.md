@@ -8,11 +8,11 @@ you get what that panel shows:
 
 - one tab per biomolecule (ASU, Biomol N);
 - per chain, the residues grouped by category: protein, nucleic, side chains to complete, missing atoms, cofactors, modified, manual charges, ligands, additives, water, other, plus the altloc and unknown-atom-type subtrees;
-- receptor and ligand checkboxes, and a params column with altloc choice, manual ion charge and rotamer preview;
-- a right-click menu to complete a side chain or leave it as is, and to mutate a residue;
+- receptor and ligand checkboxes, and a params column with altloc choice, manual ion charge and rotamer choice;
+- a right-click menu to complete a side chain or leave it as is, to mutate a residue, and to replace an ion AutoDock cannot type;
 - two save buttons that write **receptor.pdbqt** and **ligand.pdbqt**.
 
-ADapt's computation is **ADFR's own code**: the same `runAGFR` / `PDBProfiler` / `ADLigand` calls AGFRgui makes, run in the ADCP distribution's Python (the `adcpsuite` env, Python 3.7, `adfr-0.0.22`). `tests/test_parity.py` checks that the PDBQT files are byte-identical to what ADFR's headless `--toPdbqt` path writes for the same choices, except for one line ADapt adds to each file's header (`REMARK 850 AGFR biomolecule`, see below); the Qt GUI itself is not part of the tests. Only the Qt tree and its flag logic were ported (`tree.py`, `flags.py`).
+ADapt's computation is **ADFR's own code**: the same `runAGFR` / `PDBProfiler` / `ADLigand` calls AGFRgui makes, run in the ADCP distribution's Python (the `adcpsuite` env, Python 3.7, with **ADFR 0.0.23 or later and MolKit2 0.0.6**; `bin/adapt check` refuses an older ADFR). `tests/test_parity.py` checks that the PDBQT files are byte-identical to what ADFR's headless `--toPdbqt` path writes for the same choices; every receptor choice ADapt offers has an `agfr` option. The Qt GUI itself is not part of the tests. Only the Qt tree and its flag logic were ported (`tree.py`, `flags.py`).
 
 ADapt's web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking): a standard-library `ThreadingHTTPServer` bound to localhost with a random token in the URL, one HTML page with plain JavaScript and no build step, and a bundled 3Dmol.js viewer (BSD-3; its licence is in `adapt/static/`).
 
@@ -54,18 +54,21 @@ decides.
 
 **Fetch from RCSB**: type a PDB id in the box at the top and press Enter. The server downloads
 `https://files.rcsb.org/download/<ID>.pdb`, keeps it under `<outdir>/_rcsb/` (so the same entry
-opens from the cache the next time), and opens it. Entries the RCSB distributes only as mmCIF (the
-largest assemblies) are reported, not opened, because ADapt reads PDB files. The session
-record keeps the URL the file came from.
+opens from the cache the next time), and opens it. An entry the RCSB distributes only as mmCIF (the
+largest assemblies, entries with five-character ligand codes such as 10HY) is fetched as
+`<ID>.cif`. The session record keeps the URL the file came from.
 
-**Open PDB…** reads a local `.pdb`, `.ent`, `.pdb.gz` or `.ent.gz` file; dropping one on the page
-does the same. ADFR ships the files of its own tests; `bin/adapt examples` prints where they
+**Open PDB…** reads a local PDB file (`.pdb`, `.ent`) or mmCIF file (`.cif`, `.mmcif`), gzipped or
+not; dropping one on the page does the same. An mmCIF file is converted to PDB records (ADFR's
+`mmcif.py`); chain ids longer than one character and residue names longer than three are renamed,
+and the files written record the renaming. **Recent…** lists the sessions of the server and of its
+output folder, and reopens one, also after a restart. ADFR ships the files of its own tests; `bin/adapt examples` prints where they
 are in the installation in use. The same entries can be fetched by id:
 
 | Entry  | Tabs | Altloc residues | Side chains to complete | Manual-charge ions | Ligands (ADFR) | Missing residues      | Good for                                              |
 |--------|------|-----------------|-------------------------|--------------------|----------------|-----------------------|-------------------------------------------------------|
 | `6GGD` | 3    | 14              | 13                      | 2 (ZN)             | 2 (EYB)        | 44, termini           | the fullest single example                            |
-| `4A1X` | 3    | 20              | 1                       | 2 (ZN)             | -              | 31, 2 gaps + termini  | missing residues (see below)                          |
+| `4A1X` | 3    | 20              | 1                       | 15 (2 ZN, 13 CL)   | -              | 31, 2 gaps + termini  | missing residues (see below)                          |
 | `1H6W` | 2    | 1               | -                       | -                  | -              | 161, N-terminus       | Biomol 1 is a trimer: symmetry copies at half opacity |
 | `1A3R` | 1    | -               | -                       | -                  | -              | 6, 1 gap + N-terminus | insertion codes (chain L 27A, 27B, 27C) to mutate     |
 | `6BHG` | 1    | 19              | 20                      | -                  | -              | 33, 1 gap + termini   | chain B as the ligand (ADFR's own GUI test)           |
@@ -106,7 +109,7 @@ A first session with 6GGD, following ADFR's `testAGFR.py` test2:
    *Files written*; the session folder shown there keeps them.
 
 After steps 1-3 (keeping ZN and EYB in the receptor), the receptor PDBQT is byte-identical to
-what ADFR's command line writes for the same choices, apart from ADapt's biomolecule line (checked on the fetched 6GGD; the
+what ADFR's command line writes for the same choices (checked on the fetched 6GGD; the
 `testAGFR.py` scenarios are in `tests/test_parity.py`):
 
 ```bash
@@ -118,72 +121,61 @@ python -m ADFR.bin.runAGFR -r 6ggd.pdb --toPdbqt --bioMol 2 \
 (Not through the `agfr` launcher: it passes its arguments as an unquoted `$@`, so
 `"chid B resnum 402 401"` is split into words and rejected.)
 
-The command line has no altloc option, so step 4 is a choice only the panel can make.
+Step 4 is `--altlocs "B:LYS:101::A"` on the command line; a chosen rotamer is `--rotamers`, a side
+chain kept as is `--sidechainsAsIs`, an ion replacement `--substitute`.
 
 ## Outputs
 
 Each loaded file gets a session folder under `--outdir` (default `$ADAPT_OUTDIR`, else `~/adapt_runs/`; `/tmp` is refused). The folder holds:
 
 - the input PDB, under its own name, because ADFR reads the PDB id from it to look up the known ligands;
-- `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten. A receptor save holds `<id>_rec.pdbqt` and `<id>_rec_H.pdb`: the receptor as `reduce` protonated it, with every hydrogen (non-polar ones included), the PDBQT's `REMARK 850` header, then `reduce`'s output, including its `USER  MOD` lines (each His/Asn/Gln decision: protonation, flip, score, category K/F/C/X). ADFR parses that output and discards it; `adapt/reduce_log.py` is a copy of ADFR's `protonate` that keeps it (the installed ADFR is not changed, and the PDBQT is unchanged). The one change to `reduce`'s text: its added hydrogens all have serial number 0, so ADapt numbers every atom 1..N in file order (hexadecimal from the 100,000th, as ProDy does);
-- `session.json`, which records the input md5, the ADFR package version and the md5 of the ADFR sources that ran, the ADapt version and commit, every edit in order, and every file written with its md5. A receptor save also records `reduce`: its version, its His/Asn/Gln `decisions` (`{"residue": "L:HIS:198:_", "decision": "no HD1", "score": 0.771, "category": "K", ...}`) and the `chain_renames` made for symmetry copies (`{"2": {"segment": "C", "chain": "A"}}`).
+- `save_NNN_rec/` and `save_NNN_lig/` for every save, so nothing is overwritten. A receptor save holds `<id>_rec.pdbqt` and `<id>_rec_H.pdb`: the receptor as `reduce` protonated it, with every hydrogen (non-polar ones included), the PDBQT's `REMARK 850` header, then `reduce`'s output, including its `USER  MOD` lines (each His/Asn/Gln decision: protonation, flip, score, category K/F/C/X). ADFR keeps that output (`runAGFR.reduceOutput`, `reduceChainRenames`) and `adapt/reduce_log.py` parses it. The one change to `reduce`'s text: its added hydrogens all have serial number 0, so ADapt numbers every atom 1..N in file order (hexadecimal from the 100,000th, as ProDy does);
+- `session.json`, which records the input md5, the ADFR and MolKit2 package versions and the md5 of their sources that ran, the ADapt version and commit, every edit in order (with a reference to its tree node), and every file written with its md5 and a checksum of the tree's state. A session is reopened from this record (`Session.restore`): the edits are replayed and each save's state checked, and a changed input or a mismatch is refused. A receptor save also records `reduce`: its version, its His/Asn/Gln `decisions` (`{"residue": "L:HIS:198:_", "decision": "no HD1", "score": 0.771, "category": "K", ...}`) and the `chain_renames` made for symmetry copies (`{"2": {"segment": "C", "chain": "A"}}`).
 
 ## Embedding ADapt
 
 For a program that starts ADapt (as ADCP_docking does); details in `docs/start.html#embed`.
 
-- **URL parameters** next to `t`: `pdb=6GGD` fetches and opens an entry, `session=<id>` opens a session the server holds (e.g. made through `/api/upload`), `tab=Biomol%202` switches to a tab. After a load the address bar carries `session=` and `tab=`, so a reload reopens the session while the server runs.
-- **Requests** (all with `t=`): `POST api/upload?name=<file>` (file as body), `GET api/sessions` (the sessions held, newest first), `GET api/session?s=<id>`, `POST api/save` (`{"s": id, "kind": "receptor"|"ligand"}`), `GET api/download?s=<id>&save=<n>[&file=<name>]` (one file; without `file`, a several-file save is a zip).
+- **URL parameters** next to `t`: `pdb=6GGD` fetches and opens an entry, `session=<id>` opens a session the server holds (e.g. made through `/api/upload`) or one recorded in its output folder, `tab=Biomol%202` switches to a tab. After a load the address bar carries `session=` and `tab=`, so a reload reopens the session, also after a restart.
+- **Requests** (all with `t=`): `POST api/upload?name=<file>` (file as body), `GET api/sessions` (the sessions held, newest first, then those on disk with `"live": false`), `GET api/session?s=<id>`, `POST api/restore` (`{"folder": name}`), `POST api/save` (`{"s": id, "kind": "receptor"|"ligand"}`), `GET api/download?s=<id>&save=<n>[&file=<name>]` (one file; without `file`, a several-file save is a zip).
 - **Path prefix.** The page and script use relative paths only, so a page served at `/adapt/?t=…` calls `/adapt/api/…` and a proxy needs no rewriting. For a proxy that forwards the full path, `--base-path /adapt` (or `$ADAPT_BASE_PATH`) strips the prefix, redirects `/adapt?…` to `/adapt/?…` and prints the URL with it; `/` still works.
 
-## Where ADapt differs from AGFRgui (all fixes of GUI defects)
+## Where ADapt differs from AGFRgui
 
-- **The receptor and ligand files record their biomolecule.** ADapt adds one line after the header's `source` line (`REMARK 850 AGFR source` in a receptor, `REMARK 850 source` in a ligand): the tab the file was written from, the chains of the asymmetric unit it uses, and, for an assembly built by symmetry, the number of copies. Examples: `REMARK 850 AGFR biomolecule Biomol 2: chains B`, `REMARK 850 AGFR biomolecule Biomol 1: chains A B, 3 copies`, `REMARK 850 AGFR biomolecule ASU: chains A B`. ADFR's header writer has a commented-out placeholder for this line. The same line goes into every ligand file, followed by `REMARK 850 AGFR ligand from <chain:name:number:icode> ...`: the residues the ligand was made of, with their real chain, which the ligand's atom records lose (four per line for a peptide). These lines are the only difference between ADapt's files and ADFR's, and the parity tests check exactly that.
+`docs/differences.html` has the full list. In short:
 
-- **An edited manual charge is used.** AGFRgui's `_getCharges` reads a checkbox column the charge items never have, so the spin box value was silently dropped and the default charge written. With unedited charges both write the same bytes.
-- **Tab switches apply correctly.**
-  - AGFRgui kept the processed molecule across a tab switch, so a save right after switching wrote the previous biomolecule. Here it writes the new one.
-  - An altloc chosen in one tab is applied to the atoms of a tab opened afterwards. AGFRgui showed the choice, and wrote it in the `REMARK 850 AGFR altlocs` line, but kept the file's default coordinates.
-- **Mutations and side-chain choices always take effect.** In AGFRgui, one made after a save was ignored until some checkbox changed.
-- **Clicking a label only focuses the viewer.** In AGFRgui, clicking the label of a partially checked category made every residue under it receptor while the checkbox still showed partial.
-- **The "unknown atom types" subtree is display-only.** Its residues are not user-checkable in AGFRgui either.
-- **The mutate menu of a modified residue opens.** AGFRgui's menu read a table (`_modifiedRes`) that nothing in ADFR builds any more, and raised `AttributeError`; ADapt takes the parent residue from the file's MODRES record (`tree.modres_parent`).
-- **The receptor is also written with all of `reduce`'s hydrogens and its His/Asn/Gln choices** (`<id>_rec_H.pdb`, see Outputs).
-- **Missing residues are shown.** ADFR's `PDBProfiler._gaps` never reported one: it tests `format_alignment(...).split('\n').count('-')`, which counts lines that are exactly `-`, so "missing residues" never appeared in AGFRgui. ADapt uses a copy of that function (`adapt/gaps.py`, the installed ADFR is not changed) with this test fixed and four defects it had been hiding: a chain with no missing C-terminus would have reported its whole sequence as one; modified residues and caps written as HETATM (MLZ, ALY, NH2) were reported missing; a missing end of a His tag could be dropped; a chain without SEQRES raised an error; a residue letter the BLOSUM62 matrix lacks (selenomethionine, which ADFR codes `?`; selenocysteine `U`, pyrrolysine `O`) made the aligner raise `SystemError`, so such entries could not be opened at all (now aligned as `X`, original letters kept). Checked against the REMARK 465 records of ADFR's ten test PDBs (`tests/test_gaps.py`). The 3D markers are a port of AGFRgui's `addGeomsForGaps`.
+- **Corrected in ADFR 0.0.23** (found while building ADapt, so `agfr` and AGFRgui benefit too, each
+  with a test in ADFR's `tests/` that fails on 0.0.22): deterministic default alternate location;
+  ion charges from the Chemical Component Dictionary (FE +3, FE2 +2, MN +2, BR/CL/IOD −1; FE2 and
+  MN3 no longer stop a file from opening; bonded Cl/Br charged, MolKit2 0.0.6); ions of symmetry
+  copies keep their charge; residues with atoms AutoDock 4.1 cannot type stay out of the receptor,
+  and an unsupported ion can be replaced; the chosen rotamer is built; missing residues are
+  detected (ADFR's `_gaps` never reported one); assemblies from the tenth on are the right ones;
+  mmCIF input, and gzipped PDB files keep their header; the header names the biomolecule and the
+  ligand's residues, reports ion charges as written, and lists only residues of the file; new
+  options `--altlocs`, `--rotamers`, `--sidechainsAsIs`, `--substitute`.
+- **Only in ADapt:** symmetry copies follow every choice made on their original chain
+  (`adapt/copies.py`; a ligand is taken from the original only; copies on a symmetry axis are
+  written once); `<id>_rec_H.pdb` with `reduce`'s His/Asn/Gln choices; the session record and
+  restore; and fixes of AGFRgui's GUI defects: an edited charge is used (AGFRgui dropped the spin
+  box value), a save after a tab switch writes the new tab, an altloc chosen in one tab applies in
+  a tab opened later, edits made after a save take effect, clicking a label only focuses the
+  view, and the mutate menu of a modified residue opens.
 
 ## Known issues
 
-All of them, with details and links, are in the docs: `docs/known-issues.html`. Unless marked
-ADapt, they are ADFR's behaviour, shared by `agfr` and AGFRgui.
+All of them, with details and links, are in `docs/known-issues.html`. Unless marked ADapt, they
+are ADFR's behaviour, shared by `agfr` and AGFRgui.
 
-What is written:
-- **Symmetry copies do not follow every choice.** They follow mutations and side-chain completion, but not receptor/ligand checkboxes or alternate locations; they keep the defaults (measured on 1HHP).
-- **Tied alternate locations.** With equal occupancies the default location varies from run to run (Python's set order), so one PDB file can give different receptors. All 7 altloc residues of 1FV1 tie, as do 2 of 4A1X's 20, 2 of 5HHT's 33 and 4 of 6BHG's 19. Choose them explicitly; the `altlocs` REMARK records the one used.
-- **Unsupported atom types** (Cu, Na, K, …) are left out of the receptor, with no substitution.
-- **Bromine's default manual charge is +1** in ADFR's table; a bromide is −1.
-- **An FE2 ion stops the file from opening** ("no ion charge found for residue …"): the ion is recognised by element, its default charge looked up by residue name, and the table has only `FE`. Reproduced on 6GGD with an FE2 added; `MN3` probably the same (not checked).
-- **A chloride ion is written with charge 0.** It lands in *other*, because chloride (−1) is commented out of ADFR's manual-charge table. Reproduced on 6GGD with a Cl⁻ added.
-- **Suspected, not yet reproduced: bonded Cl and Br may get no partial charge.** MolKit2's `assignPartialChargesOB` charges only elements listed as `Cl`/`Br`, while receptor atoms carry `CL`/`BR` (case-sensitive match).
-- **Suspected, not yet tested: ions in symmetry copies may lose their manual charge**, because the charges are re-applied by chain id after `reduce` renamed the copies' chains.
-- **The rotamer drop-down is a preview.** `mutateResidues` always builds the best-scoring rotamer, as in AGFRgui.
-
-What the files record:
-- **No `custom charge` REMARK from a Biomol tab.** That line is read from the asymmetric unit, so it is written only from ASU / "ASU and Biomol N" tabs; from a Biomol tab the charge is in the atom record only.
-- **ADFR's command line misreports `--ionCharges`.** The atom gets the requested charge, but its `custom charge` REMARK gives the default (`= 2.0000` for a zinc set to 1.5), because that line is read from the asymmetric unit, which the option does not change. ADapt sets the charge there too, so its REMARK reports the charge written (`tests/test_parity.py::test_ion_charge_matches_command_line`).
-- **`side chain completed` lists completions in chains the tab does not contain.**
 - **Symmetry copies get new chain identifiers** (`0`, `1`, …) in the receptor files (PDBQT, and the atoms and `USER  MOD` lines of `_rec_H.pdb`); ADFR does not rename them back after `reduce`. ADapt records the renames in `session.json` (`reduce.chain_renames`).
-- **A ligand's atom records say chain `A`** whatever chain it came from, and its source line is `REMARK 850 source .pdb`, with no file name. The coordinates are correct, and ADapt records the true origin in `REMARK 850 AGFR ligand from B:EYB:402:_`.
+- **A ligand's atom records say chain `A`** whatever chain it came from; the header's `REMARK 850 AGFR ligand from B:EYB:402:_` records the true origin.
 - **(ADapt) Some choices are in the session record only:** which hetero groups were kept, and ADapt's version, are in `session.json`, not in the PDBQT header.
-
-What is shown:
-- **A gap whose ends meet is not shown.** A stretch listed as missing whose neighbouring residues are within 3.5 Å (C to N) is treated as continuous; ADFR's source names the case it was written for (1JFF GLY34-HIS61, 2.68 Å).
-- **Symmetry copies are not in the tree**; they are drawn translucent.
-
-Input and tools:
-- **PDB format only.** Entries the RCSB distributes only as mmCIF cannot be opened.
-- **The PDB id comes from the file name.** The id selects the known ligands of the entry; name files by their id.
-- **The `agfr` / `agfrgui` launchers split option values containing spaces** (unquoted `$@`). Call `python -m ADFR.bin.runAGFR` directly for those.
-- **(ADapt) Needs the ADCP distribution's `adcpsuite` environment** (Python 3.7).
+- **A gap whose ends meet is not shown.** A stretch listed as missing whose neighbouring residues are within 3.5 Å (C to N) is treated as continuous (1JFF GLY34-HIS61, 2.68 Å).
+- **(ADapt) Symmetry copies are not in the tree**; they are drawn translucent and follow their original chain.
+- **A PDB file's id comes from its file name.** The id selects the known ligands of the entry; name PDB files by their id. An mmCIF file carries its id.
+- **Copies defined only by MTRIX records are not built**; assemblies come from REMARK 350.
+- **The `agfr` / `agfrgui` launchers split option values containing spaces** (unquoted `$@`). Call `python -m ADFR.bin.runAGFR` directly for those. The correction belongs to the ADFR packaging, for the next ADCP release.
+- **(ADapt) Needs the ADCP distribution's `adcpsuite` environment** (Python 3.7) with ADFR 0.0.23 or later.
 
 ## Documentation
 
@@ -212,18 +204,23 @@ bin/adapt test [-k name]            # = tests/run_tests.py in the adcpsuite env
 
 There is no pytest in the shared env; `run_tests.py` is a small runner. Outputs go to `tests/_out/<timestamp>/` (git-ignored). The suite covers:
 
-- byte parity with `agfr --toPdbqt` for all 10 ADFR test PDBs and for the `testAGFR.py` scenarios (bioMol, heteroToKeep, mutateRes, protToRemove), and ligand parity with ADFR's `processLigands`;
+- byte parity with `agfr --toPdbqt` for all 10 ADFR test PDBs and for the `testAGFR.py` scenarios (bioMol, heteroToKeep, mutateRes, protToRemove, ionCharges, sidechainsAsIs), and ligand parity with ADFR's `processLigands`;
 - tree coverage: every supported atom lies in exactly one leaf;
 - the flag semantics;
 - the HTTP layer on a real socket;
-- Fetch from RCSB (id checks, download + cache, mmCIF-only entries, the server route); the
-  network tests skip when the machine has no route to the RCSB;
-- missing residues against REMARK 465 for the ten test PDBs, the 3D markers, and that ADFR's
-  own `_gaps` reports none.
+- Fetch from RCSB (id checks, download + cache, an mmCIF-only entry fetched and opened, the
+  server route); the network tests skip when the machine has no route to the RCSB;
+- missing residues against REMARK 465 for the ten test PDBs, and the 3D markers;
 - the protonated receptor PDB (same header and heavy atoms as the PDBQT, every polar H of the
   PDBQT, `reduce`'s text with only the atom numbers changed, numbered 1..N, past 99999 too;
-  `reduce`'s decisions and chain renames in `session.json`), and that the `protonate`
-  copy differs from ADFR's only by its marked lines;
+  `reduce`'s decisions and chain renames in `session.json`);
+- symmetry copies (`test_copies.py`: a residue unchecked, an altloc, an ion charge in every copy;
+  a ligand from the original only; 4INS's axial zincs written once; a chain of a later REMARK 350
+  block in the tree);
+- the rotamer chosen is built, an ion replaced and restored, residues left out recorded
+  (`test_choices.py`);
+- sessions restored after a restart, with every kind of edit, byte-identical saves, a changed
+  input and an ambiguous old record refused (`test_restore.py`);
 - opening a session from elsewhere, and serving under `/adapt/` through a proxy that rewrites
   nothing (`--base-path`, relative paths).
 
