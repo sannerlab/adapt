@@ -14,8 +14,9 @@ def test_tabs_are_the_assemblies():
 
 
 def test_every_supported_atom_is_in_exactly_one_leaf():
-    """Each segment-A atom of the tab's chains that has no unsupported atom
-    type sits in exactly one residue leaf (plain or altloc), for every tab."""
+    """Each atom of the tab's original chains (not their symmetry copies)
+    that has no unsupported atom type sits in exactly one residue leaf (plain
+    or altloc), for every tab."""
     for pdb in PDBS:
         s = session(pdb, 'cover')
         for name in s.trees:
@@ -24,7 +25,7 @@ def test_every_supported_atom_is_in_exactly_one_leaf():
             ag = t._ag
             want = set()
             for chid in t._chaindInBM:
-                sel = ag.select('segment A and chid %s and not unsre' % (chid if chid != ' ' else '_'))
+                sel = ag.select('adaptorig and chid %s and not unsre' % (chid if chid != ' ' else '_'))
                 if sel is not None:
                     want.update(int(i) for i in sel.getIndices())
             seen = {}

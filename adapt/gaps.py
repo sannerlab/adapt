@@ -9,6 +9,8 @@ for them.
 """
 import numpy as np
 
+from . import copies
+
 
 # ---- what the 3D view draws for them -------------------------------------
 BOND = 1.9     # A: neighbours of a terminal atom, found by distance (no bond table needed)
@@ -20,7 +22,7 @@ def _short(seq):
 
 
 def _res(ag, chid, num, icode):
-    sel = 'segment A and chid %s resnum `%d`' % (chid if chid != ' ' else '_', num)
+    sel = '%s and chid %s resnum `%d`' % (copies.ORIGINAL, chid if chid != ' ' else '_', num)
     if icode:
         sel += ' icode %s' % icode
     return ag.select(sel)
@@ -33,7 +35,6 @@ def geometry(gaps_per_chain, mol):
     terminus a sphere 3 A beyond the terminal N (or C) atom, opposite its bonds,
     joined to it by a dotted line. Returns [{'line': [p, q], 'sphere': c,
     'label': str, 'kind': 'gap'|'N'|'C'}], coordinates as lists of floats."""
-    import numpy as np
     ag = mol._ag
     out = []
     for chid, chgaps in gaps_per_chain.items():
@@ -59,7 +60,7 @@ def geometry(gaps_per_chain, mol):
             if atoms is None:
                 continue
             at = atoms.getCoords()[0]
-            near = ag.select('segment A and chid %s and within %.2f of pt' % (
+            near = ag.select('%s and chid %s and within %.2f of pt' % (copies.ORIGINAL,
                 chid if chid != ' ' else '_', BOND), pt=at)
             vecs = [x - at for x in (near.getCoords() if near is not None else [])
                     if 0.1 < np.linalg.norm(x - at)]

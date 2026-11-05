@@ -19,6 +19,8 @@ from collections import OrderedDict
 
 from ADFR.recFromPDB import getResidueKey, getResidueKeyAlt
 
+from . import copies
+
 CHECKED, PARTIAL, UNCHECKED = 'checked', 'partial', 'unchecked'
 REC, LIG = 0, 1          # our two check columns (Qt columns 0 and 2)
 
@@ -136,6 +138,8 @@ class Tree(object):
         self.name = name
         self._chaindInBM, self._mol = self.profile._assemblies[name]
         self._ag = self._mol._ag
+        # the original chains (shown) and their symmetry copies (follow them)
+        self._copies = copies.install(self._ag)
         self.nodes = session.nodes
         self.roots = []
         self._typItems = {}
@@ -156,7 +160,7 @@ class Tree(object):
         self._hasUI = True
         from . import rotamer as rotmod
 
-        for chain in self._ag.select('segment A').getHierView().iterChains():
+        for chain in self._ag.select(copies.ORIGINAL).getHierView().iterChains():
             chidSel = chid = chain.getChid()
             if chidSel == ' ':
                 chidSel = '_'
@@ -229,7 +233,7 @@ class Tree(object):
                         rotamers, rotmod):
         profile = self.profile
         for res in atoms.getHierView().iterResidues():
-            allres = self._ag.select('segment A chid %s resindex %d' % (
+            allres = self._ag.select('%s chid %s resindex %d' % (copies.ORIGINAL,
                 chidSel, res.getResindices()[0]))
             if len(allres) > len(res):
                 continue  # some atoms in this residue have altlocs
@@ -321,8 +325,8 @@ class Tree(object):
 
         def sel(num, icode):
             if icode:
-                return ag.select('segment A chid %s resnum `%d` icode %s' % (chid, num, icode))
-            return ag.select('segment A chid %s resnum `%d`' % (chid, num))
+                return ag.select('%s chid %s resnum `%d` icode %s' % (copies.ORIGINAL, chid, num, icode))
+            return ag.select('%s chid %s resnum `%d`' % (copies.ORIGINAL, chid, num))
 
         misResItem = Node(self, 'missing residues', chItem, kind='gaps')
         if len(chgaps[0]):

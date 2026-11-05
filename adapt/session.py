@@ -20,7 +20,7 @@ import traceback
 from collections import OrderedDict
 
 from . import env  # noqa: F401  (sets ADS_ROOT before ADFR is used)
-from . import flags, gaps, prep, reduce_log
+from . import copies, flags, gaps, prep, reduce_log
 from .tree import CHECKED, LIG, REC, Tree
 
 # prody, OpenBabel, reduce's pipes and redirect_stdout are all process-wide.
@@ -132,6 +132,12 @@ class Session(object):
             raise flags.Refused('no such tree item %r' % (nid,))
         return n
 
+    def _mirror(self):
+        """The symmetry copies of the current tab follow its original chains
+        (adapt/copies.py)."""
+        tree = self.tree()
+        copies.mirror(tree._ag, tree._copies)
+
     def _event(self, what, **kw):
         kw['what'] = what
         kw['tab'] = self.current
@@ -176,6 +182,7 @@ class Session(object):
                 flags.apply_altlocs(self.agfr, self.profile, tree, self._altloc0)
             else:
                 flags.sync_altlocs(self.agfr, self.profile, tree)
+            copies.mirror(tree._ag, tree._copies)
             self.profile._currentBM = tree._mol
             # AGFRgui keeps _BMProcessed across a tab switch, so a save right
             # after switching wrote the PREVIOUS biomolecule. Drop it here.
@@ -196,16 +203,16 @@ class Session(object):
 
     def atom_states(self, name=None):
         """One character per atom of the tab's molecule, in atom-index order:
-        r receptor, l ligand, o neither; upper case for segment A (the
-        others are the biomolecule's symmetry copies)."""
+        r receptor, l ligand, o neither; upper case for the original chains
+        (the others are the biomolecule's symmetry copies)."""
         ag = self.tree(name)._mol._ag
         rec = ag.getFlags('receptor')
         lig = ag.getFlags('ligand')
-        seg = ag.getSegnames()
+        orig = ag.getFlags(copies.ORIGINAL)
         out = []
-        for r, l, s in zip(rec, lig, seg):
+        for r, l, o in zip(rec, lig, orig):
             c = 'r' if r else ('l' if l else 'o')
-            out.append(c.upper() if s == 'A' else c)
+            out.append(c.upper() if o else c)
         return ''.join(out)
 
     def view(self, full=False, name=None):
@@ -248,6 +255,7 @@ class Session(object):
             raise flags.Refused('column must be rec or lig')
         with captured(self.log):
             flags.click(self.agfr, node, col)
+            self._mirror()
         self._event('check', node=node.label, key=node.key, column=column,
                     state=node.check_state(col))
         return self.view()
@@ -258,6 +266,7 @@ class Session(object):
             raise flags.Refused('%s has no alternate locations' % node.label)
         with captured(self.log):
             flags.choose_altloc(self.agfr, self.profile, node, index)
+            self._mirror()
         self._event('altloc', node=node.label, key=node.key,
                     altloc=node.altloc['alts'][node.altloc['current']])
         return self.view()
@@ -274,6 +283,7 @@ class Session(object):
                 'chid %s resnum `%s` icode %s' % (chid, resnum, icode))
             if asu is not None:
                 asu.setCharges([v] * len(asu))
+            self._mirror()
         self._event('charge', node=node.label, key=node.key, charge=v)
         d = self.view()
         d['value'] = v
