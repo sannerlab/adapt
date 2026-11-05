@@ -27,7 +27,7 @@ from .tree import CHECKED, LIG, REC, Tree
 # The page is one user's, so one lock costs nothing and removes every race.
 LOCK = threading.RLock()
 
-PDB_SUFFIXES = ('.pdb', '.ent', '.pdb.gz', '.ent.gz')
+PDB_SUFFIXES = ('.pdb', '.ent', '.pdb.gz', '.ent.gz', '.cif', '.cif.gz', '.mmcif')
 
 
 def gui_options():
@@ -57,7 +57,8 @@ def safe_name(name):
     base = os.path.basename(name or 'input.pdb')
     base = re.sub(r'[^A-Za-z0-9._-]', '_', base).lstrip('.') or 'input.pdb'
     if not base.lower().endswith(PDB_SUFFIXES):
-        raise ValueError('%s: ADapt reads .pdb, .ent, .pdb.gz or .ent.gz files'
+        raise ValueError('%s: ADapt reads PDB files (.pdb, .ent) and mmCIF files '
+                         '(.cif, .mmcif), gzipped or not'
                          % base)
     return base
 
@@ -293,6 +294,7 @@ class Session(object):
         node = self.node(nid)
         with captured(self.log):
             flags.set_sc_completion(self.agfr, self.profile, node, act)
+            self._prune_rotamers()
         self._event('sidechain', node=node.label, key=node.key, action=act)
         return self.view(full=True)
 
@@ -300,6 +302,7 @@ class Session(object):
         node = self.node(nid)
         with captured(self.log):
             flags.mutate(self.agfr, self.profile, node, choice)
+            self._prune_rotamers()
         self._event('mutate', node=node.label, key=node.key, choice=choice)
         return self.view(full=True)
 
@@ -311,14 +314,63 @@ class Session(object):
         return mutate_options(self.tree(), node)
 
     def rotamer(self, nid, choice):
+        """Show rotamer `choice` (-1: auto, the best-scoring one) of a side
+        chain to complete, and build that one when the receptor is written."""
         node = self.node(nid)
         if node.rotamer is None:
-            raise flags.Refused('%s has no rotamer preview' % node.label)
+            raise flags.Refused('%s has no rotamers' % node.label)
+        choice = int(choice)
         with LOCK:
-            pdb, index = node.rotamer.pdb(int(choice))
-            node.rotamer.current = int(choice)
+            try:
+                self.profile.chooseRotamer(node.key, None if choice < 0 else choice)
+            except ValueError as e:
+                raise flags.Refused(str(e))
+            pdb, index = node.rotamer.pdb(choice)
+            node.rotamer.current = choice
+            flags.invalidate(self.agfr)
+        rot = 'auto' if choice < 0 else choice + 1
+        last = self.events[-1] if self.events else {}
+        if last.get('what') == 'rotamer' and last.get('key') == node.key:
+            last['rotamer'] = rot          # one event per residue, not per wheel step
+            self.flush()
+        else:
+            self._event('rotamer', node=node.label, key=node.key, rotamer=rot)
         return {'pdb': pdb, 'index': index, 'message': node.rotamer.message(index),
                 'auto': node.rotamer.best}
+
+    def substitute(self, nid, element, charge=None):
+        """Write the one-atom residue of node `nid`, an ion AD4.1 cannot type
+        (copper, cobalt, ...), as an ion of `element` (Zn, Mg, Ca, Fe, Mn;
+        None undoes it). The tree is rebuilt: the ion moves to manual charges."""
+        node = self.node(nid)
+        if node.menu != 'substitute':
+            raise flags.Refused('%s cannot be replaced' % node.label)
+        q = None if charge in (None, '') else float(charge)
+        with captured(self.log):
+            try:
+                self.profile.substitute(node.key, element or None, q)
+            except ValueError as e:
+                raise flags.Refused(str(e))
+            flags.invalidate(self.agfr)
+            self._rebuild()
+        sub = self.profile._substitutions.get(node.key)
+        self._event('substitute', node=node.label, key=node.key,
+                    element=sub[0] if sub else None, charge=sub[1] if sub else None)
+        return self.view(full=True)
+
+    def _rebuild(self):
+        """New trees for every tab (the current one built now): after a
+        substitution a residue changes category."""
+        self.nodes.clear()
+        current, self.current = self.current, None
+        self.trees = OrderedDict((n, Tree(self, n)) for n in self.profile._assemblies)
+        self.switch(current)
+
+    def _prune_rotamers(self):
+        # a chosen rotamer belongs to a residue completed or mutated as that type
+        for key, (restype, index) in list(self.profile._rotamerChoice.items()):
+            if self.profile._resToMutate.get(key, (None, None))[1] != restype:
+                self.profile.chooseRotamer(key, None)
 
     def focus(self, nid):
         return {'indices': flags.focus_indices(self.node(nid))}
@@ -372,7 +424,14 @@ class Session(object):
                  'altlocs': dict((k, v[1][v[0]]) for k, v in
                                  self.profile._altlocsRes.items()),
                  'charges': flags.charges(self.tree()),
+                 'rotamers': dict((k, i + 1) for k, (t, i) in
+                                  self.profile._rotamerChoice.items()),
+                 'substitutions': dict((k, list(v)) for k, v in
+                                       self.profile._substitutions.items()),
                  'log': log}
+        if kind == 'receptor':
+            # residues dropped for an atom type AD4.1 does not have
+            entry['left_out'] = dict(self.profile._leftOut)
         if reduce is not None:
             entry['reduce'] = reduce
         self.saves.append(entry)

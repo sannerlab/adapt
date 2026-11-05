@@ -76,7 +76,7 @@ class Node(object):
         self.altloc = None           # {'alts','occ','current'} for altloc residues
         self.charge = None           # float for manual-charge residues
         self.rotamer = None          # rotamer.Preview for side chains to build
-        self.menu = None             # 'sc' | 'mutate' | None
+        self.menu = None             # 'sc' | 'mutate' | 'substitute' | None
         self.expanded = False
         self.resname = self.resnum = self.icode = None
 
@@ -284,6 +284,8 @@ class Tree(object):
             if _iter == 2:
                 item.live = False
                 item.expanded = True
+                if len(res) == 1:
+                    item.menu = 'substitute'    # an ion: can be replaced
                 unsat = res.select('unsat')
                 if unsat:
                     for atom in unsat:
@@ -296,6 +298,10 @@ class Tree(object):
                 item.menu = 'sc'
             elif typ in ('modified', 'protein'):
                 item.menu = 'mutate'
+            elif item.key in profile._substitutions:
+                item.menu = 'substitute'        # replaced: can be undone
+                sub = profile._substitutions[item.key]
+                item.label += ' -> %s' % sub[0]
 
     def _altloc_residues(self, atoms, parentItem, altlocItems):
         altres = self.profile._altlocsRes

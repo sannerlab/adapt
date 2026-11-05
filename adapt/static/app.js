@@ -106,8 +106,9 @@ if('showOpenFilePicker' in window){
     try {
       [handle] = await window.showOpenFilePicker({
         id: 'agfr-pdb',                  // kept across the rename: a new id would forget the folder
-        types: [{description: 'PDB files (.pdb .ent .pdb.gz .ent.gz)',
-                 accept: {'chemical/x-pdb': ['.pdb', '.ent', '.gz']}}]});
+        types: [{description: 'PDB and mmCIF files (.pdb .ent .cif, gzipped or not)',
+                 accept: {'chemical/x-pdb': ['.pdb', '.ent', '.gz'],
+                          'chemical/x-mmcif': ['.cif', '.mmcif']}}]});
     } catch(err){
       if(err.name !== 'AbortError')      // AbortError = the dialog was cancelled
         status('<span class=bad>could not open the file picker: ' + esc(err.message) + '</span>');
@@ -263,9 +264,8 @@ function params(cell, n){
   }
   if(n.rotamer){
     const sel = document.createElement('select');
-    sel.title = 'Scroll the mouse wheel over this box to step through the rotamers. '
-      + 'Preview only: when the receptor is written AGFR builds the best-scoring '
-      + 'rotamer (auto), exactly as AGFRgui does.';
+    sel.title = 'The rotamer to build when the receptor is written (auto: the '
+      + 'best-scoring one). Scroll the mouse wheel over this box to step through them.';
     let h = '<option value=-1>auto ' + (n.rotamer.auto + 1) + '</option>';
     for(let i = 0; i < n.rotamer.n; i++) h += '<option value=' + i + '>' + (i + 1) + '</option>';
     sel.innerHTML = h;
@@ -341,6 +341,12 @@ async function openMenu(n, x, y){
     items = [['Complete sidechain', complete, () => sidechain(n, 'complete')],
              ['Include as is', !complete, () => sidechain(n, 'asis')]];
     m.innerHTML = '<div class=head>' + esc(n.label.split(' ')[0]) + '</div>';
+  } else if(n.menu === 'substitute'){
+    const done = n.label.indexOf(' -> ') >= 0;
+    m.innerHTML = '<div class=head>' + (done ? esc(n.label.split(' ')[0])
+      : 'replace ' + esc(n.label.split(' ')[0]) + ' by') + '</div>';
+    items = done ? [['Undo the replacement', false, () => substitute(n, null)]]
+      : ['ZN', 'MG', 'CA', 'FE', 'MN'].map(el => [el, false, () => substitute(n, el)]);
   } else if(n.menu === 'mutate'){
     const d = await api('api/mutateopts?s=' + S.session + '&node=' + n.id);
     if(d.error) return;
@@ -365,6 +371,10 @@ async function openMenu(n, x, y){
 
 async function sidechain(n, act){
   const d = await api('api/sidechain', {s: S.session, node: n.id, act: act});
+  if(!d.error){ TREE = d.tree; renderTree(); applyView(d); }
+}
+async function substitute(n, element){
+  const d = await api('api/substitute', {s: S.session, node: n.id, element: element});
   if(!d.error){ TREE = d.tree; renderTree(); applyView(d); }
 }
 async function mutate(n, choice){
@@ -574,8 +584,8 @@ async function rotamer(id){
 async function rotamerOnce(id){
   const n = NODE[id];
   if(!n) return;
-  const d = await api('api/rotamer?s=' + S.session + '&node=' + id + '&choice=' + n.rotamer.current,
-                      null, null, true);
+  const d = await api('api/rotamer', {s: S.session, node: id, choice: n.rotamer.current},
+                      null, true);
   if(d.error) return;
   const v = viewer();
   if(ROT) v.removeModel(ROT);
@@ -584,7 +594,7 @@ async function rotamerOnce(id){
   v.render();
   status(esc(n.label.split(' ')[0]) + ' rotamer ' + (d.index + 1)
          + (n.rotamer.current < 0 ? ' (auto)' : '') + ' &middot; ' + esc(d.message)
-         + ' <span class=dim>(preview: AGFR writes the auto rotamer)</span>');
+         + ' <span class=dim>(built when the receptor is written)</span>');
 }
 
 /* --------------------------------------------------------------- theme */
