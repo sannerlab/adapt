@@ -82,6 +82,14 @@ def _sums(pkg, files):
             if os.path.isfile(os.path.join(pkg, f))}
 
 
+def _snapshot_commit():
+    """The commit `git archive` stamped into adapt/_build.py, or None in a git
+    checkout (where the placeholders are not expanded)."""
+    from . import _build
+    c = getattr(_build, 'COMMIT', '')
+    return None if not c or c.startswith('$Format') else c
+
+
 def provenance():
     """What produced a file: interpreter, ADFR and MolKit2 versions, and the md5
     of their sources that do the work, so any output can be tied to its code."""
@@ -90,7 +98,14 @@ def provenance():
     pkg = os.path.dirname(os.path.abspath(ADFR.__file__))
     mk2 = os.path.dirname(os.path.abspath(MolKit2.__file__))
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    status = _git(here, 'status', '--porcelain')
+    # git only speaks for ADapt when ADapt's folder is the top of a checkout:
+    # a snapshot unpacked inside some other repository must not report that
+    # repository's commit
+    top = _git(here, 'rev-parse', '--show-toplevel')
+    checkout = top is not None and os.path.realpath(top) == os.path.realpath(here)
+    status = _git(here, 'status', '--porcelain') if checkout else None
+    commit = _git(here, 'rev-parse', 'HEAD') if checkout else None
+    snapshot = None if commit else _snapshot_commit()
     return {
         'python': sys.version.split()[0],
         'executable': sys.executable,
@@ -101,6 +116,8 @@ def provenance():
         'molkit2_package': mk2,
         'molkit2_dist': _dist(mk2, 'molkit2'),
         'molkit2_md5': _sums(mk2, _TRACKED_MOLKIT2),
-        'adapt_commit': _git(here, 'rev-parse', 'HEAD'),
+        'adapt_commit': commit or snapshot,
+        # a snapshot (git archive) cannot say whether it was edited after unpacking
+        'adapt_source': 'git' if commit else ('snapshot' if snapshot else None),
         'adapt_dirty': None if status is None else status != '',
     }
