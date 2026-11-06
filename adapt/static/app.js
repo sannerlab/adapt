@@ -21,6 +21,10 @@ let VIEW = null, MODEL = null, ROT = null;
 let STRUCT = {};         // tab -> {pdb, n}
 let SEL = null;          // selected node id
 let HL = null;           // {indices, scheme}: what is highlighted, kept across repaints
+let REBUILT = [];        // rebuilt residues drawn: [{gap, segment, pdb, joins, ...}]
+let REBDRAWN = [];       // their 3Dmol models, shapes and labels
+let GAPDRAWN = [];       // the gap markers' shapes and labels
+let LOADING = null;      // the structure being loaded (drawing waits for it)
 
 /* ---------------------------------------------------------------- api */
 let busyTimer = null;
@@ -106,8 +110,9 @@ if('showOpenFilePicker' in window){
     try {
       [handle] = await window.showOpenFilePicker({
         id: 'agfr-pdb',                  // kept across the rename: a new id would forget the folder
-        types: [{description: 'PDB files (.pdb .ent .pdb.gz .ent.gz)',
-                 accept: {'chemical/x-pdb': ['.pdb', '.ent', '.gz']}}]});
+        types: [{description: 'PDB and mmCIF files (.pdb .ent .cif, gzipped or not)',
+                 accept: {'chemical/x-pdb': ['.pdb', '.ent', '.gz'],
+                          'chemical/x-mmcif': ['.cif', '.mmcif']}}]});
     } catch(err){
       if(err.name !== 'AbortError')      // AbortError = the dialog was cancelled
         status('<span class=bad>could not open the file picker: ' + esc(err.message) + '</span>');
@@ -154,8 +159,8 @@ function showTab(d){
   renderTabs();
   TREE = d.tree;
   renderTree();
+  loadStructure(TAB);     // first: the rebuilt residues are drawn once it is loaded
   applyView(d);
-  loadStructure(TAB);
 }
 
 /* ---------------------------------------------------------------- tree */
@@ -190,6 +195,13 @@ function makeNode(n, depth){
     + '<div class=lig><input type=checkbox class=cb data-col=lig></div></div>';
   if(n.id === SEL) li.firstChild.classList.add('sel');
   params(li.querySelector('.params'), n);
+  if(n.rebuild && n.rebuild.why){
+    const why = document.createElement('div');
+    why.className = 'why';
+    why.style.paddingLeft = (depth * 14 + 34) + 'px';
+    why.textContent = 'not rebuilt: ' + n.rebuild.why;
+    li.appendChild(why);
+  }
   if(kids.length){
     if(isOpen(n)) li.appendChild(childList(n, depth));
     else li.classList.add('closed');
@@ -233,8 +245,17 @@ function paintStates(){
   }
 }
 
-/* the params column: altloc radios, manual charge, rotamer preview */
+/* the params column: altloc radios, manual charge, rotamer preview, rebuild box */
 function params(cell, n){
+  if(n.rebuild && !n.rebuild.why){
+    const lab = document.createElement('label');
+    lab.className = 'rebuild';
+    lab.title = 'Build the missing residues of this gap (PDBFixer, then Amber ff14SB with the '
+      + 'observed atoms fixed). They are drawn with magenta carbons and written with the receptor.';
+    lab.innerHTML = '<input type=checkbox' + (n.rebuild.on ? ' checked' : '') + '> rebuild';
+    lab.firstChild.onchange = () => rebuild(n, lab.firstChild.checked);
+    cell.appendChild(lab);
+  }
   if(n.altloc){
     n.altloc.alts.forEach((a, i) => {
       const lab = document.createElement('label');
@@ -263,9 +284,8 @@ function params(cell, n){
   }
   if(n.rotamer){
     const sel = document.createElement('select');
-    sel.title = 'Scroll the mouse wheel over this box to step through the rotamers. '
-      + 'Preview only: when the receptor is written AGFR builds the best-scoring '
-      + 'rotamer (auto), exactly as AGFRgui does.';
+    sel.title = 'The rotamer to build when the receptor is written (auto: the '
+      + 'best-scoring one). Scroll the mouse wheel over this box to step through them.';
     let h = '<option value=-1>auto ' + (n.rotamer.auto + 1) + '</option>';
     for(let i = 0; i < n.rotamer.n; i++) h += '<option value=' + i + '>' + (i + 1) + '</option>';
     sel.innerHTML = h;
@@ -341,6 +361,12 @@ async function openMenu(n, x, y){
     items = [['Complete sidechain', complete, () => sidechain(n, 'complete')],
              ['Include as is', !complete, () => sidechain(n, 'asis')]];
     m.innerHTML = '<div class=head>' + esc(n.label.split(' ')[0]) + '</div>';
+  } else if(n.menu === 'substitute'){
+    const done = n.label.indexOf(' -> ') >= 0;
+    m.innerHTML = '<div class=head>' + (done ? esc(n.label.split(' ')[0])
+      : 'replace ' + esc(n.label.split(' ')[0]) + ' by') + '</div>';
+    items = done ? [['Undo the replacement', false, () => substitute(n, null)]]
+      : ['ZN', 'MG', 'CA', 'FE', 'MN'].map(el => [el, false, () => substitute(n, el)]);
   } else if(n.menu === 'mutate'){
     const d = await api('api/mutateopts?s=' + S.session + '&node=' + n.id);
     if(d.error) return;
@@ -367,6 +393,38 @@ async function sidechain(n, act){
   const d = await api('api/sidechain', {s: S.session, node: n.id, act: act});
   if(!d.error){ TREE = d.tree; renderTree(); applyView(d); }
 }
+/* Recent sessions: those the server holds and those recorded in its output
+   folder (reopened by replaying their edits). */
+$('recentbtn').onclick = async e => {
+  e.stopPropagation();
+  const d = await api('api/sessions');
+  if(d.error) return;
+  const m = $('menu');
+  m.innerHTML = '<div class=head>reopen a session</div>';
+  if(!d.sessions.length) m.innerHTML += '<div class=dim>none yet</div>';
+  for(const x of d.sessions.slice(0, 20)){
+    const div = document.createElement('div');
+    div.textContent = (x.label || x.pdbid || x.session) + '  ·  ' + (x.created || '').replace('T', ' ')
+      + (x.saves ? '  ·  ' + x.saves + ' saved' : '');
+    if(S && S.session === x.session) div.className = 'cur';
+    div.onclick = async () => {
+      closeMenu();
+      status('opening session ' + esc(x.session) + '&hellip;');
+      const r = await api('api/session?s=' + encodeURIComponent(x.session));
+      if(!r.error) loaded(r);
+    };
+    m.appendChild(div);
+  }
+  m.hidden = false;
+  const b = $('recentbtn').getBoundingClientRect();
+  m.style.left = b.left + 'px';
+  m.style.top = (b.bottom + 4) + 'px';
+};
+
+async function substitute(n, element){
+  const d = await api('api/substitute', {s: S.session, node: n.id, element: element});
+  if(!d.error){ TREE = d.tree; renderTree(); applyView(d); }
+}
 async function mutate(n, choice){
   const d = await api('api/mutate', {s: S.session, node: n.id, choice: choice});
   if(!d.error){ TREE = d.tree; renderTree(); applyView(d);
@@ -383,6 +441,11 @@ function applyView(d){
     $('showother').disabled = !d.buttons.other;
   }
   if(d.atoms != null){ ATOMS = d.atoms; restyle(); }
+  // rebuilt residues: those that came with the answer, else the server's
+  // current ones while any gap of this tab is chosen (an edit may move them)
+  if(d.rebuilt) drawRebuilt(d.rebuilt);
+  else if(d.rebuild) refreshRebuilt();
+  else if(REBUILT.length) drawRebuilt([]);
 }
 
 async function show(what, scheme){
@@ -437,7 +500,11 @@ function viewer(){
   return VIEW;
 }
 
-async function loadStructure(tab){
+function loadStructure(tab){
+  LOADING = loadStructureNow(tab);
+  return LOADING;
+}
+async function loadStructureNow(tab){
   if(!STRUCT[tab]){
     const d = await api('api/structure?s=' + S.session + '&tab=' + encodeURIComponent(tab));
     if(d.error) return;
@@ -445,7 +512,7 @@ async function loadStructure(tab){
   }
   if(tab !== TAB) return;
   const v = viewer();
-  v.clear(); ROT = null;
+  v.clear(); ROT = null; REBUILT = []; REBDRAWN = []; GAPDRAWN = [];
   const d = STRUCT[tab];
   HL = null;                     // its indices belonged to the previous molecule
   MODEL = v.addModel(d.pdb, 'pdb', {altLoc: '*', keepH: true});
@@ -465,17 +532,83 @@ async function loadStructure(tab){
 const GAP_COLOR = '#ffa600';
 function drawGaps(gaps){
   const v = viewer();
+  for(const x of GAPDRAWN) x.label ? v.removeLabel(x.label) : v.removeShape(x.shape);
+  GAPDRAWN = [];
+  // a gap whose residues are drawn rebuilt has no marker
+  const built = new Set(REBUILT.filter(r => r.segment === 'A').map(r => r.gap));
   for(const g of gaps){
+    if(g.key && built.has(g.key)) continue;
     const [p, q] = g.line.map(c => ({x: c[0], y: c[1], z: c[2]}));
-    v.addCylinder({start: p, end: q, radius: 0.07, color: GAP_COLOR, dashed: true,
-                   dashLength: 0.35, gapLength: 0.25, fromCap: 1, toCap: 1});
+    GAPDRAWN.push({shape: v.addCylinder({start: p, end: q, radius: 0.07, color: GAP_COLOR, dashed: true,
+                   dashLength: 0.35, gapLength: 0.25, fromCap: 1, toCap: 1})});
     const c = {x: g.sphere[0], y: g.sphere[1], z: g.sphere[2]};
-    v.addSphere({center: c, radius: 0.3, color: GAP_COLOR});
-    v.addLabel((g.kind === 'gap' ? '' : g.kind + ' term: ') + g.label,
+    GAPDRAWN.push({shape: v.addSphere({center: c, radius: 0.3, color: GAP_COLOR})});
+    GAPDRAWN.push({label: v.addLabel((g.kind === 'gap' ? '' : g.kind + ' term: ') + g.label,
                {position: c, fontSize: 11, fontColor: '#8a5300', backgroundColor: '#fff3d6',
                 backgroundOpacity: 0.85, borderThickness: 0, inFront: true,
-                alignment: 'bottomLeft'});
+                alignment: 'bottomLeft'})});
   }
+}
+
+/* rebuilt residues (adapt/rebuild.py): sticks with magenta carbons, their two
+   joins to the residues either side, and a label with their sequence; in a
+   symmetry copy, or when they will not be written, translucent. The preview is
+   the molecule a save writes. */
+const REB_COLOR = '#d633d6';
+function drawRebuilt(list){
+  const v = viewer();
+  for(const x of REBDRAWN)
+    x.model ? v.removeModel(x.model) : x.label ? v.removeLabel(x.label) : v.removeShape(x.shape);
+  REBDRAWN = [];
+  REBUILT = list || [];
+  for(const r of REBUILT){
+    const faint = r.segment !== 'A' || !r.written;
+    const m = v.addModel(r.pdb, 'pdb');
+    v.setStyle({model: m}, {stick: {colorscheme: 'magentaCarbon', radius: 0.2, opacity: faint ? 0.5 : 1}});
+    REBDRAWN.push({model: m});
+    for(const [p, q] of r.joins)
+      REBDRAWN.push({shape: v.addCylinder({start: {x: p[0], y: p[1], z: p[2]}, end: {x: q[0], y: q[1], z: q[2]},
+                                           radius: 0.2, color: REB_COLOR, opacity: faint ? 0.5 : 1})});
+    if(r.segment === 'A'){
+      const ca = m.selectedAtoms({atom: 'CA'});
+      const at = ca[Math.floor(ca.length / 2)];
+      if(at) REBDRAWN.push({label: v.addLabel('rebuilt: ' + r.sequence,
+          {position: {x: at.x, y: at.y, z: at.z}, fontSize: 11, fontColor: '#7a1f7a',
+           backgroundColor: '#fbe3fb', backgroundOpacity: 0.85, borderThickness: 0,
+           inFront: true, alignment: 'bottomLeft'})});
+    }
+  }
+  if(STRUCT[TAB]) drawGaps(STRUCT[TAB].gaps || []);
+  v.render();
+}
+
+/* the server's rebuilt residues for this tab, drawn once the structure is */
+async function refreshRebuilt(){
+  if(LOADING) await LOADING;
+  const d = await api('api/rebuilt?s=' + S.session + '&tab=' + encodeURIComponent(TAB), null, null, true);
+  if(d.error) return;
+  if(d.tree){ TREE = d.tree; renderTree(); }
+  drawRebuilt(d.rebuilt);
+  if(d.refused && d.refused.length) status('<span class=bad>' + d.refused.map(esc).join('<br>') + '</span>');
+}
+
+/* the rebuild box of a gap */
+async function rebuild(n, on){
+  status((on ? 'building ' : 'removing ') + esc(n.label) + '&hellip;');
+  const d = await api('api/rebuild', {s: S.session, node: n.id, on: on});
+  if(d.error){ renderTree(); return; }
+  TREE = d.tree; renderTree();
+  applyView(d);
+  if(d.refused.length){ status('<span class=bad>' + d.refused.map(esc).join('<br>') + '</span>'); return; }
+  const r = REBUILT.find(x => x.gap === n.rebuild.key && x.segment === 'A');
+  if(on && r){
+    const g = r.geometry;
+    status(esc(n.label) + ' rebuilt (magenta): C to N ' + g['C-N'][0].toFixed(2) + ' to ' + g['C-N'][1].toFixed(2)
+      + ' A, CA to CA ' + g['CA-CA'][0].toFixed(2) + ' to ' + g['CA-CA'][1].toFixed(2)
+      + ' A, closest contact ' + g.contact.toFixed(2) + ' A'
+      + (r.written ? ' <span class=dim>(written with the receptor)</span>'
+                   : ' <span class=bad>(not written: the residues either side are not both in the receptor)</span>'));
+  } else status(esc(n.label) + (on ? ' rebuilt' : ' will not be rebuilt'));
 }
 
 /* receptor grey carbons, ligand orange sticks, the rest purple; symmetry
@@ -574,8 +707,8 @@ async function rotamer(id){
 async function rotamerOnce(id){
   const n = NODE[id];
   if(!n) return;
-  const d = await api('api/rotamer?s=' + S.session + '&node=' + id + '&choice=' + n.rotamer.current,
-                      null, null, true);
+  const d = await api('api/rotamer', {s: S.session, node: id, choice: n.rotamer.current},
+                      null, true);
   if(d.error) return;
   const v = viewer();
   if(ROT) v.removeModel(ROT);
@@ -584,7 +717,7 @@ async function rotamerOnce(id){
   v.render();
   status(esc(n.label.split(' ')[0]) + ' rotamer ' + (d.index + 1)
          + (n.rotamer.current < 0 ? ' (auto)' : '') + ' &middot; ' + esc(d.message)
-         + ' <span class=dim>(preview: AGFR writes the auto rotamer)</span>');
+         + ' <span class=dim>(built when the receptor is written)</span>');
 }
 
 /* --------------------------------------------------------------- theme */

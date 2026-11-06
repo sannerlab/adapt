@@ -48,7 +48,9 @@ export PATH="$ENV_ROOT/bin:$PATH"
 export ADS_ROOT="$ENV_ROOT"
 export PYTHONNOUSERSITE="disable"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ADS_ROOT/lib"
-# only this package on the path, as the launchers leave nothing else
-export PYTHONPATH="$HERE"
+# only this package on the path, as the launchers leave nothing else; for
+# development against unreleased ADFR / MolKit2 sources, $ADAPT_DEV_PATH (a
+# folder holding them) is put first
+export PYTHONPATH="${ADAPT_DEV_PATH:+$ADAPT_DEV_PATH:}$HERE"
 export ADAPT_OUTDIR="${ADAPT_OUTDIR:-$HOME/adapt_runs}"
 exec "$ENV_ROOT/bin/python" -m adapt "$@"

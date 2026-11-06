@@ -1,6 +1,7 @@
 # Author: Michel Sanner, PhD. Copyright (c) 2026.
 """The receptor as reduce protonated it: <pdbid>_rec_H.pdb next to the PDBQT,
-and reduce's decisions in the session record (adapt/reduce_log.py)."""
+and reduce's decisions in the session record (ADFR keeps reduce's output;
+adapt/reduce_log.py reads it)."""
 import json
 import os
 
@@ -69,8 +70,7 @@ def test_protonated_receptor_pdb():
                       for x in his), his)
     # reduce's output as it wrote it, except the atom numbers: 1..N in order
     # (reduce gives the hydrogens it adds the number 0)
-    from adapt import reduce_log
-    raw = reduce_log.LAST['stdout'].splitlines()
+    raw = s.agfr.reduceOutput.splitlines()
     body = p[len(head):]
     check(len(body) == len(raw), (len(body), len(raw)))
     check(any(l.startswith('ATOM      0 ') for l in raw), 'reduce numbers added H 0')
@@ -125,15 +125,3 @@ def test_renumbered_past_99999():
           'only the serial changed')
     ag = prody.parsePDBStream(io.StringIO('\n'.join(out) + '\n'))
     check(list(ag.getSerials()) == list(range(1, 100003)), 'ProDy reads the numbers back')
-
-
-def test_protonate_copy_is_verbatim():
-    """adapt/reduce_log.py:protonate is ADFR's, plus only the lines marked ADAPT."""
-    import inspect
-    from adapt import reduce_log
-    ours = inspect.getsource(reduce_log.protonate).splitlines()
-    theirs = inspect.getsource(reduce_log._ORIGINAL).splitlines()
-    i = next(k for k, l in enumerate(ours) if '# ADAPT:' in l)
-    added = ours[i:i + 4]
-    check(added[2].strip() == 'LAST.clear()' and added[3].strip().startswith('LAST.update('), added)
-    check(ours[:i] + ours[i + 4:] == theirs, 'only the marked lines differ')

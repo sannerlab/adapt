@@ -19,6 +19,9 @@ from collections import OrderedDict
 
 from ADFR.recFromPDB import getResidueKey, getResidueKeyAlt
 
+from . import copies
+from .gaps import key as gapkey
+
 CHECKED, PARTIAL, UNCHECKED = 'checked', 'partial', 'unchecked'
 REC, LIG = 0, 1          # our two check columns (Qt columns 0 and 2)
 
@@ -50,11 +53,13 @@ class Node(object):
     live     : clicking it changes flags (onClick needs _pmvObj + checkable;
                the whole "unknown atom types" subtree is inert here, see
                flags.py)
+    rebuild  : ADapt, an internal gap: {'key', 'on', 'why'} for its rebuild
+               box (rebuild.py); None for every other node
     """
     __slots__ = ('id', 'label', 'parent', 'children', 'sel', 'gapsel',
                  'state', 'tristate', 'checkable', 'live', 'kind', 'key',
                  'altloc', 'charge', 'rotamer', 'menu', 'expanded', 'resname',
-                 'resnum', 'icode')
+                 'resnum', 'icode', 'rebuild')
 
     def __init__(self, tree, label, parent=None, kind='item'):
         self.id = tree._newid()
@@ -74,9 +79,10 @@ class Node(object):
         self.altloc = None           # {'alts','occ','current'} for altloc residues
         self.charge = None           # float for manual-charge residues
         self.rotamer = None          # rotamer.Preview for side chains to build
-        self.menu = None             # 'sc' | 'mutate' | None
+        self.menu = None             # 'sc' | 'mutate' | 'substitute' | None
         self.expanded = False
         self.resname = self.resnum = self.icode = None
+        self.rebuild = None
 
     # ---- Qt check-state semantics -------------------------------------
     def check_state(self, col):
@@ -102,6 +108,17 @@ class Node(object):
                 if c.check_state(col) is not None:
                     c.set_state(col, value)
 
+    def ref(self):
+        """How to find this node again in a rebuilt tree (a restored session):
+        a residue by its key, anything else by the labels from its chain."""
+        if self.key:
+            return {'key': self.key}
+        path, n = [], self
+        while n is not None:
+            path.insert(0, n.label)
+            n = n.parent
+        return {'path': path}
+
     def leaves(self):
         if not self.children:
             yield self
@@ -122,6 +139,8 @@ class Node(object):
             d['charge'] = self.charge
         if self.rotamer is not None:
             d['rotamer'] = self.rotamer.describe()
+        if self.rebuild is not None:
+            d['rebuild'] = self.rebuild
         if self.children:
             d['children'] = [c.to_json() for c in self.children]
         return d
@@ -136,6 +155,8 @@ class Tree(object):
         self.name = name
         self._chaindInBM, self._mol = self.profile._assemblies[name]
         self._ag = self._mol._ag
+        # the original chains (shown) and their symmetry copies (follow them)
+        self._copies = copies.install(self._ag)
         self.nodes = session.nodes
         self.roots = []
         self._typItems = {}
@@ -144,6 +165,26 @@ class Tree(object):
 
     def _newid(self):
         return self.session._newid()
+
+    def walk(self):
+        stack = list(reversed(self.roots))
+        while stack:
+            n = stack.pop()
+            yield n
+            stack.extend(reversed(n.children))
+
+    def resolve(self, ref):
+        """The node Node.ref() described, or None."""
+        if ref.get('key'):
+            return next((n for n in self.walk() if n.key == ref['key'] and n.kind != 'atom'), None)
+        level = self.roots
+        node = None
+        for label in ref.get('path', []):
+            node = next((n for n in level if n.label == label), None)
+            if node is None:
+                return None
+            level = node.children
+        return node
 
     def header(self):
         return self._mol.name + ' receptor'
@@ -156,7 +197,7 @@ class Tree(object):
         self._hasUI = True
         from . import rotamer as rotmod
 
-        for chain in self._ag.select('segment A').getHierView().iterChains():
+        for chain in self._ag.select(copies.ORIGINAL).getHierView().iterChains():
             chidSel = chid = chain.getChid()
             if chidSel == ' ':
                 chidSel = '_'
@@ -229,7 +270,7 @@ class Tree(object):
                         rotamers, rotmod):
         profile = self.profile
         for res in atoms.getHierView().iterResidues():
-            allres = self._ag.select('segment A chid %s resindex %d' % (
+            allres = self._ag.select('%s chid %s resindex %d' % (copies.ORIGINAL,
                 chidSel, res.getResindices()[0]))
             if len(allres) > len(res):
                 continue  # some atoms in this residue have altlocs
@@ -280,6 +321,8 @@ class Tree(object):
             if _iter == 2:
                 item.live = False
                 item.expanded = True
+                if len(res) == 1:
+                    item.menu = 'substitute'    # an ion: can be replaced
                 unsat = res.select('unsat')
                 if unsat:
                     for atom in unsat:
@@ -292,6 +335,10 @@ class Tree(object):
                 item.menu = 'sc'
             elif typ in ('modified', 'protein'):
                 item.menu = 'mutate'
+            elif item.key in profile._substitutions:
+                item.menu = 'substitute'        # replaced: can be undone
+                sub = profile._substitutions[item.key]
+                item.label += ' -> %s' % sub[0]
 
     def _altloc_residues(self, atoms, parentItem, altlocItems):
         altres = self.profile._altlocsRes
@@ -321,8 +368,8 @@ class Tree(object):
 
         def sel(num, icode):
             if icode:
-                return ag.select('segment A chid %s resnum `%d` icode %s' % (chid, num, icode))
-            return ag.select('segment A chid %s resnum `%d`' % (chid, num))
+                return ag.select('%s chid %s resnum `%d` icode %s' % (copies.ORIGINAL, chid, num, icode))
+            return ag.select('%s chid %s resnum `%d`' % (copies.ORIGINAL, chid, num))
 
         misResItem = Node(self, 'missing residues', chItem, kind='gaps')
         if len(chgaps[0]):
@@ -337,6 +384,12 @@ class Tree(object):
                      '--%s%d' % (r2Name, r2Num), misResItem, kind='gap')
             a, b = sel(r1Num, r1Icode), sel(r2Num, r2Icode)
             g.gapsel = a + b if (a is not None and b is not None) else (a or b)
+            # ADapt: the box that asks for this gap to be rebuilt (rebuild.py);
+            # missing termini get none
+            rb = self.session.rebuilder
+            key = gapkey(chid, gap[0], gap[-1])
+            if key in rb.gaps:
+                g.rebuild = {'key': key, 'on': key in rb.chosen, 'why': rb.gaps[key].why}
         if len(chgaps[2]):
             c = Node(self, 'C term: %s' % chgaps[2][1], misResItem, kind='gap')
             cName, cNum, cIcode = chgaps[2][0]

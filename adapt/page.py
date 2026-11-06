@@ -18,11 +18,12 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
 <link rel="stylesheet" href="static/app.css?v=__V_CSS__">
 <header>
   <b>__APP__</b> <span class=dim>__APP_LONG__</span>
-  <label class=btn id=openbtn title="Read a .pdb, .ent, .pdb.gz or .ent.gz file">
-    Open PDB&hellip;<input type=file id=file accept=".pdb,.ent,.gz" hidden></label>
+  <label class=btn id=openbtn title="Read a PDB (.pdb, .ent) or mmCIF (.cif) file, gzipped or not">
+    Open PDB&hellip;<input type=file id=file accept=".pdb,.ent,.cif,.mmcif,.gz" hidden></label>
   <form id=fetchform class=fetch title="Download an entry from the RCSB (files.rcsb.org) by its PDB id">
     <input id=pdbcode placeholder="PDB id" maxlength=4 size=6 spellcheck=false autocomplete=off>
     <button id=fetchbtn>Fetch from RCSB</button></form>
+  <button id=recentbtn title="Reopen a session: the ones this server holds, and those recorded in its output folder">Recent&hellip;</button>
   <span id=pdblabel class=dim>or drop a PDB file anywhere on the page</span>
   <span class=grow></span>
   <span id=envnote class=dim></span>

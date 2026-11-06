@@ -39,14 +39,27 @@ def test_fetch_and_cache():
     check(path2 == path and cached2, 'second fetch served from the cache')
 
 
-def test_mmcif_only_entry_is_explained():
+def test_mmcif_only_entry_is_fetched_as_mmcif():
+    """10HY has no PDB-format file at the RCSB (404): its mmCIF is fetched and
+    opened (ADFR 0.0.23 reads mmCIF). It used to be refused."""
     if not _online():
         return
+    import threading
+    import urllib.request
+    from adapt.server import build
+    path, url, cached = fetch.fetch('10HY', outdir('rcsb_cif'))
+    check(path.endswith('10HY.cif') and url.endswith('/10HY.cif'), (path, url))
+    httpd = build('127.0.0.1', 0, outdir('server_fetch_cif'))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = 'http://127.0.0.1:%d' % httpd.server_address[1]
     try:
-        fetch.fetch('4V6X', outdir('rcsb_big'))           # a ribosome: mmCIF only
-        raise AssertionError('4V6X has no PDB-format file')
-    except fetch.FetchError as e:
-        check('only distributed as mmCIF' in str(e), str(e))
+        req = urllib.request.Request(base + '/api/fetch?code=10hy&t=' + httpd.app.token,
+                                     data=b'{}', method='POST')
+        d = json.loads(urllib.request.urlopen(req).read().decode())
+        check('error' not in d, d.get('error'))
+        check(d['pdbid'] == '10hy' and d['tabs'], (d['pdbid'], d['tabs']))
+    finally:
+        httpd.shutdown()
 
 
 def test_fetch_through_the_server():

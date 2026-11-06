@@ -8,8 +8,10 @@ person on the same machine cannot drive someone else's session by guessing
 the port, and nothing is exposed beyond localhost unless --host says so;
 remote use goes through an SSH tunnel.
 """
+import glob
 import json
 import os
+import re
 import secrets
 import threading
 import traceback
@@ -90,20 +92,80 @@ class App(object):
         return d
 
     def list_sessions(self):
-        """The sessions this server holds, newest first."""
+        """The sessions this server holds, newest first, then those recorded
+        on disk under the output folder (restored when opened)."""
         with self._lock:
             ss = list(self.sessions.values())
         out = [{'session': s.id, 'pdbid': s.profile._pdbid, 'label': s.label(),
                 'folder_display': s.info().get('folder_display'), 'tabs': list(s.trees),
                 'current': s.current, 'created': s.record.get('created'),
-                'saves': len(s.saves)} for s in ss]
+                'saves': len(s.saves), 'live': True} for s in ss]
+        live = set(d['session'] for d in out)
+        for path in glob.glob(os.path.join(self.outdir, '*', 'session.json')):
+            try:
+                with open(path) as fh:
+                    rec = json.load(fh)
+            except (OSError, ValueError):
+                continue
+            if rec.get('session') in live or not rec.get('session'):
+                continue
+            out.append({'session': rec['session'], 'pdbid': rec.get('pdbid'),
+                        'label': rec.get('input', {}).get('name'),
+                        'folder': os.path.basename(os.path.dirname(path)),
+                        'created': rec.get('created'), 'saves': len(rec.get('saves', [])),
+                        'live': False})
         return {'sessions': sorted(out, key=lambda d: d['created'] or '', reverse=True)}
 
     def session(self, sid):
+        """The live session `sid`, or the one recorded on disk under the output
+        folder (after a restart), restored by replaying its edits."""
         s = self.sessions.get(sid or '')
-        if s is None:
+        if s is not None:
+            return s
+        folder = self._folder_of(sid)
+        if folder is None:
             raise Refused('no such session; load the PDB file again')
+        return self._restore(folder, sid)
+
+    def _folder_of(self, sid):
+        if not re.match(r'^[0-9a-f]{16}$', sid or ''):
+            return None
+        for path in glob.glob(os.path.join(self.outdir, '*_%s' % sid[:6], 'session.json')):
+            try:
+                with open(path) as fh:
+                    if json.load(fh).get('session') == sid:
+                        return os.path.dirname(path)
+            except (OSError, ValueError):
+                continue
+        return None
+
+    def _restore(self, folder, sid=None):
+        from .session import RestoreError, Session
+        try:
+            s = Session.restore(folder, sid=sid, provenance=self.provenance())
+        except RestoreError as e:
+            raise Refused('the session in %s cannot be restored: %s'
+                          % (os.path.basename(folder), e))
+        with self._lock:
+            self.sessions[s.id] = s
         return s
+
+    def restore(self, folder):
+        """Restore the session folder `folder` (a name under the output
+        folder) -- a session from before session ids were recorded gets a new
+        id -- and return what /api/upload returns."""
+        name = os.path.basename(folder or '')
+        path = os.path.join(self.outdir, name)
+        if not name or name.startswith('.') or not os.path.isfile(os.path.join(path, 'session.json')):
+            raise Refused('no session folder %r in the output folder' % name)
+        with open(os.path.join(path, 'session.json')) as fh:
+            sid = json.load(fh).get('session')
+        s = self.sessions.get(sid) if sid else None
+        if s is None:
+            s = self._restore(path, sid or secrets.token_hex(8))
+        d = s.info()
+        d.update(s.view(full=True))
+        return d
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -208,8 +270,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._run(lambda: app.session(g('s')).focus(g('node')))
         if u.path == '/api/mutateopts':
             return self._run(lambda: app.session(g('s')).mutate_options(g('node')))
-        if u.path == '/api/rotamer':
-            return self._run(lambda: app.session(g('s')).rotamer(g('node'), g('choice', '-1')))
+        if u.path == '/api/rebuilt':
+            return self._run(lambda: app.session(g('s')).rebuilt(g('tab')))
         if u.path == '/api/download':
             return self._download(app, g('s'), g('save'), g('file'))
         return self._send({'error': 'no such endpoint'}, 404)
@@ -304,8 +366,13 @@ class Handler(BaseHTTPRequestHandler):
             '/api/charge': lambda: s().charge(body.get('node'), body.get('value')),
             '/api/sidechain': lambda: s().sidechain(body.get('node'), body.get('act')),
             '/api/mutate': lambda: s().mutate(body.get('node'), body.get('choice', '')),
+            '/api/rotamer': lambda: s().rotamer(body.get('node'), body.get('choice', -1)),
+            '/api/substitute': lambda: s().substitute(body.get('node'), body.get('element'),
+                                                      body.get('charge')),
+            '/api/rebuild': lambda: s().rebuild(body.get('node'), body.get('on')),
             '/api/select': lambda: s().select(body.get('what')),
             '/api/save': lambda: _save(s(), body.get('kind')),
+            '/api/restore': lambda: app.restore(body.get('folder')),
         }
         fn = routes.get(u.path)
         if fn is None:

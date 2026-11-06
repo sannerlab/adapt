@@ -157,14 +157,17 @@ def set_sc_completion(agfr, profile, node, act):
         res = item.sel
         key = item.key
         atoms = ' '.join(profile._missingAtoms.get(key, []))
+        try:
+            # ADFR's definition, the one agfr --sidechainsAsIs uses
+            profile.completeSidechain(key, act == 'complete')
+        except ValueError as e:
+            raise Refused(str(e))
         if act == 'complete':
             item.label = "%s'%s%s build:%s" % (res.getResname(), res.getResnum(),
                                               res.getIcode(), atoms)
-            profile._resToMutate[key] = [res.getResname(), res.getResname()]
         else:
             item.label = "%s'%s%s use as is missing:%s" % (
                 res.getResname(), res.getResnum(), res.getIcode(), atoms)
-            profile._resToMutate.pop(key, None)
     invalidate(agfr)
 
 

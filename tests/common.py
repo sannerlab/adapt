@@ -55,17 +55,12 @@ def oracle_receptor(pdb, folder, **extra):
     kw = kw_base.copy()
     kw.update({'receptorFile': os.path.join(DATA, pdb), 'toPdbqt': True})
     kw.update(extra)
-    from adapt import gaps, reduce_log
     cwd = os.getcwd()
     os.chdir(folder)
-    gaps.uninstall()        # ADFR exactly as installed: its own _gaps
-    reduce_log.uninstall()  # and its own protonate
     try:
         with quiet():
             runAGFR()(**kw)
     finally:
-        gaps.install()
-        reduce_log.install()
         os.chdir(cwd)
     return os.path.join(folder, os.path.splitext(pdb)[0] + '_rec.pdbqt')
 
@@ -122,26 +117,6 @@ def check(cond, msg=''):
 
 BIOMOL = b'REMARK 850 AGFR biomolecule '
 ORIGIN = b'REMARK 850 AGFR ligand from '
-
-
-def without_biomolecule(data):
-    """A PDBQT file as ADFR writes it: ADapt's bytes minus the lines it adds
-    (REMARK 850 AGFR biomolecule ..., then in a ligand REMARK 850 AGFR ligand
-    from ...), which must be there once, right after the "source" line. ADFR's
-    own files pass through unchanged."""
-    lines = data.split(b'\n')
-    at = [i for i, l in enumerate(lines) if l.startswith(BIOMOL)]
-    if not at:
-        return data
-    check(len(at) == 1, 'one biomolecule line, found %d' % len(at))
-    check(lines[at[0] - 1].startswith((b'REMARK 850 AGFR source', b'REMARK 850 source')),
-          'biomolecule line follows source')
-    # a ligand's origin lines, if any, come right after it
-    end = at[0] + 1
-    while end < len(lines) and lines[end].startswith(ORIGIN):
-        end += 1
-    check(not any(l.startswith(ORIGIN) for l in lines[end:]), 'origin lines are together')
-    return b'\n'.join(lines[:at[0]] + lines[end:])
 
 
 def origins(data):
