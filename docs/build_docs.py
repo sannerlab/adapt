@@ -42,7 +42,7 @@ TEMPLATE = """<!doctype html>
 <link rel="stylesheet" href="style.css">
 </head><body><div class="layout">
 <nav class="side">
-<a class="brand" href="index.html">ADapt<small>AutoDock preparation &amp; perception tool</small></a>
+<a class="brand" href="index.html">ADapt<small>AutoDock Analysis and Preparation Tool</small></a>
 {nav}
 </nav>
 <main>

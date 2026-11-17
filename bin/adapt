@@ -1,5 +1,5 @@
 #!/bin/sh
-# ADapt, the AutoDock preparation & perception tool.
+# ADapt: AutoDock Analysis and Preparation Tool - preparing PDB entries for docking.
 # Author: Michel Sanner, PhD. Copyright (c) 2026.
 #
 # Runs ADapt with the ADCP distribution's Python (the "adcpsuite" environment),

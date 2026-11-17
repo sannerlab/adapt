@@ -1,4 +1,4 @@
-# ADapt — AutoDock preparation & perception tool
+# ADapt: AutoDock Analysis and Preparation Tool - preparing PDB entries for docking
 
 Author: Michel Sanner, PhD. Copyright © 2026. See [License](#license).
 
