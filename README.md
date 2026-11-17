@@ -243,8 +243,9 @@ There is no pytest in the shared env; `run_tests.py` is a small runner. Outputs 
 
 ## License
 
-Author: Michel Sanner, PhD. Copyright © 2026. All rights reserved: no license has been chosen yet,
-and one will be added to this repository.
+Author: Michel Sanner, PhD. Copyright © 2026. ADapt is distributed under the
+[Sannerlab MIT-like Source-Available License, version 1.0](https://sannerlab.github.io/software/license.html),
+the license of all the Sanner lab's software. Its full text is in `LICENSE.md`.
 
 Parts of ADapt come from other software, under their own licences. `THIRD_PARTY_NOTICES.md` lists
 them:
