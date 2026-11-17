@@ -20,6 +20,11 @@ def main(argv=None):
                '  %(prog)s serve                   start %(app)s on port 8766 and print its URL\n'
                '  %(prog)s serve --port 9000       another fixed port (the browser remembers\n'
                '                                folders and theme per port)\n'
+               '  %(prog)s serve --open            open the page in the browser (or a new tab\n'
+               '                                on the server already running); Quit in the\n'
+               '                                page, or 10 idle minutes, stops it\n'
+               '  %(prog)s launcher --desktop      add ADapt to the applications menu and the\n'
+               '                                desktop (Linux): one click starts it\n'
                '  %(prog)s check                   "ready", or what %(app)s is missing\n'
                '  %(prog)s examples                where ADFR keeps its example PDB files\n'
                '  %(prog)s test -k parity          run part of the test suite\n\n'
@@ -42,6 +47,23 @@ def main(argv=None):
                    help='where every session keeps its input, outputs and '
                         'session.json (default %(default)s); keep it on NFS, '
                         'never /tmp')
+    s.add_argument('--open', action='store_true',
+                   help='open the page in the default browser; when a server '
+                        'started on this machine for the same output folder still '
+                        'runs, open a new tab on it instead of starting another; '
+                        'a busy port is replaced by a free one; the page gets a '
+                        'Quit button')
+    s.add_argument('--idle-exit', type=int, default=None, metavar='MIN',
+                   help='stop after MIN minutes without a request (an open page '
+                        'checks in every minute); default 10 with --open, else never')
+    s.add_argument('--log', metavar='FILE',
+                   help='append the server\'s messages to FILE instead of the terminal '
+                        '(for a start from the desktop, which has no terminal)')
+    la = sub.add_parser('launcher', help='add %s to the applications menu (Linux)' % APP)
+    la.add_argument('--desktop', action='store_true', help='also put the icon on ~/Desktop')
+    la.add_argument('--remove', action='store_true', help='remove the menu entry and the icon')
+    la.add_argument('--outdir', default=DEFAULT_OUTDIR,
+                    help='output folder of the sessions it starts (default %(default)s)')
     sub.add_parser('check', help='report what %s needs that is missing' % APP)
     sub.add_parser('examples', help="list the example PDB files that ship with ADFR")
     t = sub.add_parser('test', help='run the %s test suite (tests/run_tests.py)' % APP)
@@ -62,6 +84,8 @@ def main(argv=None):
             if f.endswith('.pdb'):
                 print('  ' + f)
         return 0
+    if a.cmd == 'launcher':
+        return launcher(a)
     if a.cmd == 'check':
         miss = env.check()
         print('%s is ready' % APP if not miss else '%s cannot run: missing %s' % (APP, '; '.join(miss)))
@@ -71,13 +95,49 @@ def main(argv=None):
         return 2
     if os.path.realpath(os.path.expanduser(a.outdir)).startswith('/tmp'):
         p.error('--outdir must not be under /tmp; it is wiped')
+    if a.log:   # before the imports below, so their warnings go there too
+        os.makedirs(os.path.dirname(os.path.abspath(os.path.expanduser(a.log))), exist_ok=True)
+        out = open(os.path.expanduser(a.log), 'a', buffering=1)
+        sys.stdout = sys.stderr = out
+        import datetime
+        print('---- %s' % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), flush=True)
     from .server import serve
     from .server import clean_base_path
     try:
         base = clean_base_path(a.base_path)
     except ValueError as e:
         p.error(str(e))
-    serve(a.host, a.port, a.outdir, base)
+    idle = a.idle_exit if a.idle_exit is not None else (10 if a.open else 0)
+    serve(a.host, a.port, a.outdir, base, open_browser=a.open, idle_exit=idle)
+    return 0
+
+
+def launcher(a):
+    """Write (or remove) the Linux menu entry that runs `adapt serve --open`
+    with this environment and output folder."""
+    from . import APP, desktop
+    if a.remove:
+        gone = desktop.remove_launcher()
+        print('\n'.join('removed ' + g for g in gone) or 'no %s launcher was installed' % APP)
+        return 0
+    if not sys.platform.startswith('linux'):
+        print('the launcher is for Linux desktops; elsewhere run: bin/adapt serve --open')
+        return 2
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env_root = os.environ.get('ADS_ROOT') or sys.prefix
+    outdir = os.path.abspath(os.path.expanduser(a.outdir))
+    if outdir.startswith('/tmp'):
+        print('--outdir must not be under /tmp; it is wiped')
+        return 2
+    text = desktop.launcher_text(os.path.join(here, 'bin', 'adapt'), env_root, outdir,
+                                 os.path.join(desktop.state_dir(), 'server.log'),
+                                 os.path.join(here, 'adapt', 'static', 'adapt-icon.png'))
+    for p in desktop.install_launcher(text, a.desktop):
+        print('wrote ' + p)
+    if a.desktop:
+        print('On GNOME, right-click the desktop icon once and choose "Allow Launching".')
+    print('%s now starts from the applications menu: it opens in the browser, and Quit '
+          'in the page stops it.' % APP)
     return 0
 
 

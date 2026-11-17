@@ -24,6 +24,20 @@ only.</p>
 <p>To use ADapt from another computer, forward the port from that computer and open the same
 URL there:</p>
 <pre>ssh -L 8766:127.0.0.1:8766 &lt;host running ADapt&gt;</pre>
+<h3 id="desktop">From the desktop</h3>
+<p>On the computer you sit at, ADapt can start and open its page in one step:</p>
+<pre>bin/adapt serve --open</pre>
+<p>The page opens in your default browser. Starting it again while it runs opens a new tab on the
+same server instead of a second server. The page then has a <b>Quit</b> button, and the server also
+stops by itself 10 minutes after its last page was closed (<code>--idle-exit N</code> changes the
+delay). Your sessions are kept either way: <b>Recent…</b> reopens them next time.</p>
+<p>On Linux, one command adds ADapt to the applications menu, and <code>--desktop</code> also puts
+its icon on the desktop:</p>
+<pre>bin/adapt launcher --desktop</pre>
+<p>The icon runs <code>bin/adapt serve --open</code> with the ADCP environment and output folder
+found when the launcher was made, and writes the server's messages to
+<code>~/.adapt/server.log</code>. On GNOME, right-click the desktop icon once and choose
+<b>Allow Launching</b>. <code>bin/adapt launcher --remove</code> takes both away.</p>
 <div class="tip"><b>Keep a fixed port.</b> The browser keeps what it remembers for a page (the
 Open PDB folder, the light or dark theme) per host <em>and port</em>. The default port 8766, or
 any <code>--port N</code>, keeps that memory; <code>--port 0</code> picks a new port on each run

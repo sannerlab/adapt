@@ -37,6 +37,16 @@ the environment by itself: `$ADCPSUITE`, `$ADS_ROOT`, the environment of an `adc
 `PATH`, `$CONDA_PREFIX`, then an `adcpsuite` env in the usual micromamba / conda locations. Set
 `ADCPSUITE=/path/to/env` to choose one.
 
+**From the desktop.** `bin/adapt serve --open` also opens the page in the default browser. Run
+again while the server is up, it opens a new tab on that server instead of starting another (the
+running server is recorded in `~/.adapt/server.json`, mode 600, with its token). The page then has
+a **Quit** button, and the server stops by itself 10 minutes after the last page was closed (an
+open page checks in every minute; `--idle-exit N` changes the delay). On Linux,
+`bin/adapt launcher --desktop` adds ADapt to the applications menu and puts its icon on the desktop.
+The icon runs `serve --open` with the ADCP env and output folder found when the launcher was made,
+and its messages go to `~/.adapt/server.log`. `bin/adapt launcher --remove` takes them away. On
+GNOME, right-click the desktop icon once and choose **Allow Launching**.
+
 **From another machine**, run the server on the host that has the env, then forward its port:
 
 ```bash

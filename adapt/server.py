@@ -18,6 +18,8 @@ import traceback
 import urllib.parse
 import zipfile
 import io
+import errno
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import APP, APP_LONG, __version__, env, fetch, page
@@ -40,6 +42,11 @@ class App(object):
         self.sessions = {}
         self._lock = threading.Lock()
         self._prov = None
+        # desktop use (serve --open): the page offers Quit, and the server
+        # stops by itself idle_exit minutes after the last request
+        self.desktop = False
+        self.idle_exit = 0
+        self.last_request = time.time()
 
     def provenance(self):
         if self._prov is None:
@@ -48,7 +55,8 @@ class App(object):
 
     def status(self):
         return {'version': __version__, 'missing': env.check(),
-                'outdir': self.outdir, 'environment': self.provenance()}
+                'outdir': self.outdir, 'environment': self.provenance(),
+                'desktop': self.desktop, 'idle_exit': self.idle_exit}
 
     def upload(self, name, data, source=None):
         from .session import Session
@@ -255,7 +263,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send('open the URL this tool printed; it carries the token',
                                   403, 'text/plain')
             return self._send({'error': 'bad or missing token'}, 403)
+        app.last_request = time.time()
         g = lambda k, d=None: q.get(k, [d])[0]
+        if u.path == '/api/ping':
+            return self._send({'ok': True})
         if u.path == '/':
             return self._send(page.render(), 200, 'text/html')
         if u.path == '/api/status':
@@ -283,7 +294,8 @@ class Handler(BaseHTTPRequestHandler):
                 or not os.path.isfile(full):
             return self._send({'error': 'no such file'}, 404)
         ctype = ('application/javascript' if name.endswith('.js')
-                 else 'text/css' if name.endswith('.css') else 'text/plain')
+                 else 'text/css' if name.endswith('.css')
+                 else 'image/png' if name.endswith('.png') else 'text/plain')
         with open(full, 'rb') as fh:
             body = fh.read()
         self.send_response(200)
@@ -349,6 +361,15 @@ class Handler(BaseHTTPRequestHandler):
         if not self._auth(q):
             return self._send({'error': 'bad or missing token'}, 403)
         app = self.server.app
+        app.last_request = time.time()
+        if u.path == '/api/quit':
+            # only a server started for the desktop (serve --open) stops from its page
+            if not app.desktop:
+                return self._send({'error': 'this server was not started with --open; '
+                                            'stop it where it runs (Ctrl-C)'}, 400)
+            self._send({'ok': True})
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return
         if u.path == '/api/upload':
             return self._run(lambda: app.upload(q.get('name', [''])[0],
                                                 self._raw(MAX_UPLOAD)))
@@ -411,16 +432,67 @@ def build(host='127.0.0.1', port=8766, outdir='~/adapt_runs', base_path=''):
     return httpd
 
 
-def serve(host='127.0.0.1', port=8766, outdir='~/adapt_runs', base_path=''):
-    httpd = build(host, port, outdir, base_path)
+def serve(host='127.0.0.1', port=8766, outdir='~/adapt_runs', base_path='',
+          open_browser=False, idle_exit=0):
+    """Run the server until Ctrl-C, Quit (desktop) or idle_exit minutes without
+    a request. open_browser: reuse the server already running for this output
+    folder, if any, and open the page in the browser."""
+    from . import desktop
+    if open_browser:
+        url = desktop.running(outdir)
+        if url:
+            print('%s is already running at\n\n    %s\n\nopening a new tab on it' % (APP, url), flush=True)
+            if not desktop.open_browser(url):
+                print('no browser could be opened: open the URL above', flush=True)
+            return
+    try:
+        httpd = build(host, port, outdir, base_path)
+    except OSError as e:
+        # a desktop start must not fail on a busy port: any free one will do
+        if not (open_browser and e.errno == errno.EADDRINUSE):
+            raise
+        print('port %d is in use; %s takes a free port' % (port, APP), flush=True)
+        httpd = build(host, 0, outdir, base_path)
+    app = httpd.app
+    app.desktop = bool(open_browser)
+    app.idle_exit = idle_exit or 0
     bound = httpd.server_address[1]
-    url = 'http://%s:%d%s/?t=%s' % (host, bound, httpd.base_path, httpd.app.token)
+    url = 'http://%s:%d%s/?t=%s' % (host, bound, httpd.base_path, app.token)
     print('%s %s (%s) is at\n\n    %s\n' % (APP, __version__, APP_LONG, url), flush=True)
-    print('outputs are kept in %s' % httpd.app.outdir, flush=True)
+    print('outputs are kept in %s' % app.outdir, flush=True)
     miss = env.check()
     if miss:
         print('\n%s cannot run yet. NOT FOUND: %s' % (APP, '; '.join(miss)), flush=True)
+    local = host in ('127.0.0.1', 'localhost', '::1')
+    if local:
+        try:
+            desktop.record(url, os.getpid(), app.outdir, __version__)
+        except OSError as e:
+            print('(could not record the server in %s: %s)' % (desktop.state_file(), e), flush=True)
+    if app.idle_exit:
+        print('stops after %d minutes without a request' % app.idle_exit, flush=True)
+        threading.Thread(target=_stop_when_idle, args=(httpd,), daemon=True).start()
+    if open_browser:
+        if not desktop.can_open_browser():
+            print('no graphical session: open the URL above in a browser', flush=True)
+        else:
+            threading.Thread(target=desktop.open_browser, args=(url,), daemon=True).start()
     try:
         httpd.serve_forever()
+        print('%s stopped' % APP, flush=True)
     except KeyboardInterrupt:
         print('\n%s stopped' % APP)
+    finally:
+        if local:
+            desktop.forget(os.getpid())
+        httpd.server_close()
+
+
+def _stop_when_idle(httpd, every=20):
+    app = httpd.app
+    while True:
+        time.sleep(every)
+        if time.time() - app.last_request > app.idle_exit * 60:
+            print('no request for %d minutes: stopping' % app.idle_exit, flush=True)
+            httpd.shutdown()
+            return

@@ -16,6 +16,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
 } catch (e) {}</script>
 <link rel="stylesheet" href="static/app.css?v=__V_CSS__">
+<link rel="icon" href="static/adapt-icon.png">
 <header>
   <b>__APP__</b> <span class=dim>__APP_LONG__</span>
   <label class=btn id=openbtn title="Read a PDB (.pdb, .ent) or mmCIF (.cif) file, gzipped or not">
@@ -30,6 +31,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
   <a class=btn id=docslink href="docs/index.html" target=_blank rel=noopener
      title="What __APP__ does, with worked examples">Docs</a>
   <button id=theme class=plain title="light / dark">&#9681;</button>
+  <button id=quitbtn hidden title="Stop __APP__ (sessions are kept: Recent&hellip; reopens them next time)">Quit</button>
 </header>
 <main>
   <section id=left>

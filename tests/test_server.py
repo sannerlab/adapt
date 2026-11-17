@@ -263,3 +263,111 @@ def test_base_path_option():
         check(r.status == 301 and r.getheader('Location') == '/adapt/?t=' + tok, (r.status, r.getheader('Location')))
     finally:
         httpd.shutdown()
+
+
+# ---- desktop use: serve --open, Quit, idle stop, the launcher -------------
+def _desktop_env(name):
+    """ADAPT_STATE_DIR, XDG_DATA_HOME and XDG_DESKTOP_DIR under tests/_out, so
+    nothing in the user's home is written or removed (a launcher installed
+    there stays); returns a function that restores them."""
+    old = {k: os.environ.get(k) for k in ('ADAPT_STATE_DIR', 'XDG_DATA_HOME', 'XDG_DESKTOP_DIR')}
+    os.environ['ADAPT_STATE_DIR'] = outdir(name + '_state')
+    os.environ['XDG_DATA_HOME'] = outdir(name + '_xdg')
+    os.environ['XDG_DESKTOP_DIR'] = outdir(name + '_desktop')
+
+    def restore():
+        for k, v in old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    return restore
+
+
+def test_ping_and_quit():
+    """/api/ping answers with the token only; Quit stops a desktop server and is
+    refused by one started from a terminal."""
+    from adapt.server import build
+    httpd = build('127.0.0.1', 0, outdir('server_quit'))
+    th = threading.Thread(target=httpd.serve_forever, daemon=True)
+    th.start()
+    base, tok = 'http://127.0.0.1:%d' % httpd.server_address[1], httpd.app.token
+    try:
+        check(_code(base + '/api/ping') == 403)
+        check(_get(base + '/api/ping?t=' + tok) == {'ok': True})
+        st = _get(base + '/api/status?t=' + tok)
+        check(st['desktop'] is False and st['idle_exit'] == 0, st)
+        check(_code(base + '/api/quit?t=' + tok, b'{}') == 400, 'terminal server: no Quit')
+        httpd.app.desktop = True
+        check(_post(base + '/api/quit?t=' + tok, {}) == {'ok': True})
+        th.join(5)
+        check(not th.is_alive(), 'the server stopped')
+    finally:
+        if th.is_alive():
+            httpd.shutdown()
+        httpd.server_close()
+
+
+def test_idle_exit():
+    from adapt.server import build, _stop_when_idle
+    httpd = build('127.0.0.1', 0, outdir('server_idle'))
+    httpd.app.idle_exit = 0.002        # minutes: 0.12 s
+    th = threading.Thread(target=httpd.serve_forever, daemon=True)
+    th.start()
+    _stop_when_idle(httpd, every=0.05)
+    th.join(5)
+    check(not th.is_alive(), 'stopped when idle')
+    httpd.server_close()
+
+
+def test_open_reuses_the_running_server():
+    """The record in ADAPT_STATE_DIR: a second serve --open opens a tab on the
+    server that still answers (same output folder) instead of starting one."""
+    from adapt import desktop
+    from adapt import server as srv
+    restore = _desktop_env('server_reuse')
+    httpd = srv.build('127.0.0.1', 0, outdir('server_reuse'))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    url = 'http://127.0.0.1:%d/?t=%s' % (httpd.server_address[1], httpd.app.token)
+    opened = []
+    real_open = desktop.open_browser
+    desktop.open_browser = lambda u: opened.append(u) or True
+    try:
+        check(desktop.running() is None, 'no record yet')
+        desktop.record(url, 4242, httpd.app.outdir, 'x')
+        check(oct(os.stat(desktop.state_file()).st_mode & 0o777) == '0o600', 'the token is private')
+        check(desktop.running(outdir('server_reuse')) == url)
+        check(desktop.running(outdir('server_reuse_other')) is None, 'another output folder')
+        srv.serve('127.0.0.1', 0, outdir('server_reuse'), open_browser=True)   # returns at once
+        check(opened == [url], opened)
+        desktop.forget(1)
+        check(os.path.exists(desktop.state_file()), "another server's record is kept")
+        desktop.forget(4242)
+        check(not os.path.exists(desktop.state_file()))
+        desktop.record(url.replace(httpd.app.token, 'stale'), 4243, httpd.app.outdir, 'x')
+        check(desktop.running() is None, 'a record whose server does not answer')
+    finally:
+        desktop.open_browser = real_open
+        httpd.shutdown()
+        restore()
+
+
+def test_launcher_file():
+    from adapt import desktop
+    restore = _desktop_env('server_launcher')
+    try:
+        text = desktop.launcher_text('/opt/my tools/adapt/bin/adapt', '/opt/envs/adcpsuite',
+                                     '/data/adapt runs', '/home/u/.adapt/server.log', '/opt/icon.png')
+        lines = dict(l.split('=', 1) for l in text.splitlines() if '=' in l)
+        check(lines['Exec'] == 'env ADCPSUITE=/opt/envs/adcpsuite "/opt/my tools/adapt/bin/adapt" '
+                               'serve --open --outdir "/data/adapt runs" --log /home/u/.adapt/server.log',
+              lines['Exec'])
+        check(lines['Terminal'] == 'false' and lines['Name'] == 'ADapt')
+        check(lines['GenericName'] == 'AutoDock Analysis and Preparation Tool')
+        paths = desktop.install_launcher(text, on_desktop=True)
+        check(paths == [os.path.join(os.environ['XDG_DATA_HOME'], 'applications', 'adapt.desktop'),
+                        os.path.join(os.environ['XDG_DESKTOP_DIR'], 'adapt.desktop')], paths)
+        check(all(read(p).decode() == text and os.access(p, os.X_OK) for p in paths))
+        check(desktop.remove_launcher() == paths and not any(os.path.exists(p) for p in paths))
+    finally:
+        restore()

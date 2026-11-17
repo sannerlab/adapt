@@ -62,6 +62,14 @@ function log(lines){
   pre.scrollTop = pre.scrollHeight;
 }
 
+$('quitbtn').onclick = async () => {
+  if(!confirm('Stop ADapt? Your sessions are kept; Recent\u2026 reopens them next time.')) return;
+  const d = await api('api/quit', {});
+  if(d.error) return;
+  document.body.innerHTML = '<p style="margin:3em auto;max-width:36em;font:16px system-ui">'
+    + 'ADapt has stopped. You can close this tab.</p>';
+};
+
 /* ------------------------------------------------------------ loading */
 async function openFile(file){
   if(!file) return;
@@ -753,6 +761,10 @@ $('theme').onclick = () => {
 
 api('api/status').then(d => {
   if(d.error) return;
+  // started for the desktop (serve --open): a Quit button, and a check-in
+  // every minute so the server knows the page is still open
+  if(d.desktop) $('quitbtn').hidden = false;
+  if(d.idle_exit) setInterval(() => { fetch('api/ping?t=' + encodeURIComponent(T)).catch(() => {}); }, 60000);
   const env = d.environment || {};
   $('envnote').innerHTML = (d.missing && d.missing.length)
     ? '<span class=bad>missing: ' + d.missing.map(esc).join('; ') + '</span>'
