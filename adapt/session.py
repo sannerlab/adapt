@@ -72,11 +72,15 @@ def safe_name(name):
 class Session(object):
 
     def __init__(self, sid, data, filename, outroot, provenance=None, source=None,
-                 folder=None):
+                 folder=None, ligand_table=None):
         """A new session of `data` (the file `filename`) in a new folder under
         `outroot`; or, with `folder`, the session of that folder (restore():
-        nothing in it is written until its edits are replayed)."""
+        nothing in it is written until its edits are replayed). ligand_table:
+        the table that tells the entry's ligands (ligtable; default the most
+        recent one)."""
+        from . import ligtable
         self.id = sid
+        self.ligand_table = ligand_table or ligtable.current() or ligtable.ADFR_2020
         self.nodes = {}
         self._next = 0
         self.lock = LOCK
@@ -107,6 +111,7 @@ class Session(object):
                       'md5': hashlib.md5(data).hexdigest(),
                       'source': source or {'upload': filename}},
             'environment': provenance,
+            'ligand_table': self._table_record(),
             'events': self.events,
             'saves': self.saves,
         }
@@ -116,7 +121,8 @@ class Session(object):
             self.options = gui_options()
             self.agfr = runAGFR()
             self.agfr.proccessPreLoadCmdLineOptions(self.options)
-            self.agfr.loadReceptor(self.input, processReceptor=False)
+            with ligtable.using(self.ligand_table):
+                self.agfr.loadReceptor(self.input, processReceptor=False)
         if not self.agfr._pdbInput:
             raise ValueError('%s was not read as a PDB file' % name)
         self.profile = self.agfr.PDBprofile
@@ -126,6 +132,7 @@ class Session(object):
         self._altloc0 = dict((k, v[0]) for k, v in self.profile._altlocsRes.items())
         self.record['options'] = _jsonable(self.options)
         self.record['pdbid'] = self.profile._pdbid
+        self.record['ligand_table'] = self._table_record()
         self.trees = OrderedDict((n, Tree(self, n))
                                  for n in self.profile._assemblies)
         self.current = None
@@ -153,7 +160,16 @@ class Session(object):
         if not sid:
             raise RestoreError('the session in %s has no id (made before restore '
                                'existed); restore it with a new one' % folder)
-        s = cls(sid, data, name, None, provenance, folder=folder)
+        # the ligand table the session was made with (ADFR's own before ADapt
+        # had one); when it is not on this machine, the current one, and the
+        # replay checks that every state is still reproduced
+        from . import ligtable
+        made = (rec.get('ligand_table') or {}).get('id') or ligtable.ADFR_2020
+        table = ligtable.by_id(made)
+        s = cls(sid, data, name, None, provenance, folder=folder, ligand_table=table)
+        if table is None:
+            s.log.append('the ligand table of this session (%s) is not on this machine; '
+                         'the current one is used' % made)
         s._replay(rec)
         return s
 
@@ -398,7 +414,31 @@ class Session(object):
         return {'session': self.id, 'pdbid': self.profile._pdbid,
                 'label': self.label(), 'folder': self.folder,
                 'folder_display': _home_tilde(self.folder),
-                'tabs': list(self.trees), 'current': self.current}
+                'tabs': list(self.trees), 'current': self.current,
+                'ligand_table': self._table_record()}
+
+    # ---- the ligand table ----------------------------------------------
+    def ligand_listed(self):
+        """Whether the ligand table lists this entry (None: ADFR's own table)."""
+        from . import ligtable
+        if self.ligand_table == ligtable.ADFR_2020:
+            return None
+        return self.ligand_table.has(self.profile._pdbid)
+
+    def _table_record(self):
+        from . import ligtable
+        t = self.ligand_table
+        if t == ligtable.ADFR_2020:
+            d = {'id': t, 'built': '2020-03', 'source': 'ADFR (Ligand Expo cc-to-pdb.tdd)'}
+        else:
+            d = {'id': t.id, 'built': t.built, 'source': 'RCSB PDB Data API',
+                 'entries': len(t._pdb), 'codes': len(t._cc)}
+        pid = getattr(getattr(self, 'profile', None), '_pdbid', None)
+        if pid:
+            d['pdbid'] = pid
+            d['entry_listed'] = self.ligand_listed()
+            d['pdb_id_like'] = ligtable.looks_like_pdb_id(pid)
+        return d
 
     def structure(self, name=None):
         import prody

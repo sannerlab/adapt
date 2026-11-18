@@ -39,6 +39,7 @@ PAGE = r"""<!doctype html><meta charset="utf-8">
     alternate locations. Mutate/complete residue sidechains.
     <span class=dim>Right-click a residue for its menu.</span></p>
     <nav id=tabs></nav>
+    <div id=ligwarn hidden></div>
     <div id=treehead class=row><span id=treetitle>receptor</span><span>params</span><span>lig.</span></div>
     <div id=tree><p class=dim id=empty>No structure loaded.</p></div>
     <div class=bar>

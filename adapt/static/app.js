@@ -102,6 +102,33 @@ function loaded(d){
          + (d.tabs.length === 1 ? '' : 's')
          + (d.fetched ? ' &middot; <span class=dim>' + esc(d.fetched.url)
                         + (d.fetched.from_cache ? ' (cached)' : '') + '</span>' : ''));
+  ligandNotice(d.ligand_table);
+}
+
+/* An entry the ligand table does not list (released after the table was
+   built): its ligands are under "other". Offer to rebuild the table from the
+   RCSB, then open the entry again with it. */
+function ligandNotice(t){
+  const box = $('ligwarn');
+  if(!t || !t.pdb_id_like || t.entry_listed !== false){ box.hidden = true; return; }
+  box.innerHTML = esc(String(t.pdbid).toUpperCase()) + ' is not in the ligand table (built '
+    + esc(String(t.built).slice(0, 10)) + '), so its ligands are listed under <i>other</i>. '
+    + '<button id=ligupdate title="Rebuild the table from the RCSB PDB (a few minutes), then open this entry again">'
+    + 'Update the ligand table</button>';
+  box.hidden = false;
+  $('ligupdate').onclick = async () => {
+    $('ligupdate').disabled = true;
+    status('rebuilding the ligand table from the RCSB PDB&hellip; (a few minutes)');
+    const u = await api('api/ligands/update', {});
+    if(u.error){ $('ligupdate').disabled = false; return; }
+    const d = await api('api/reopen', {s: S.session});
+    if(d.error) return;
+    loaded(d);
+    status('ligand table rebuilt (' + u.entries.toLocaleString() + ' entries, '
+           + u.codes.toLocaleString() + ' components); ' + esc(d.pdbid) + ' opened again with it'
+           + (d.ligand_table && d.ligand_table.entry_listed === false
+              ? ' <span class=bad>(still not listed: the RCSB may not have released it yet)</span>' : ''));
+  };
 }
 $('file').addEventListener('change', e => { openFile(e.target.files[0]); e.target.value = ''; });
 

@@ -70,6 +70,30 @@ class App(object):
         d.update(s.view(full=True))
         return d
 
+    def ligands(self):
+        from . import ligtable
+        t = ligtable.current()
+        return t.describe() if t else {}
+
+    def update_ligands(self):
+        """Rebuild the ligand table from the RCSB (a few minutes); sessions
+        opened from now on use it."""
+        from . import ligtable
+        try:
+            return ligtable.build().describe()
+        except RuntimeError as e:
+            raise Refused(str(e))
+        except OSError as e:
+            raise Refused('the RCSB could not be reached to rebuild the ligand table: %s' % e)
+
+    def reopen(self, sid):
+        """The input of session `sid` opened again, as a new session (with the
+        current ligand table); returns what /api/upload returns."""
+        s = self.session(sid)
+        with open(s.input, 'rb') as fh:
+            data = fh.read()
+        return self.upload(os.path.basename(s.input), data, s.record['input'].get('source'))
+
     def fetch(self, code):
         """Download an entry from the RCSB (cached) and open it like an upload."""
         import datetime
@@ -267,6 +291,8 @@ class Handler(BaseHTTPRequestHandler):
         g = lambda k, d=None: q.get(k, [d])[0]
         if u.path == '/api/ping':
             return self._send({'ok': True})
+        if u.path == '/api/ligands':
+            return self._run(app.ligands)
         if u.path == '/':
             return self._send(page.render(), 200, 'text/html')
         if u.path == '/api/status':
@@ -394,6 +420,8 @@ class Handler(BaseHTTPRequestHandler):
             '/api/select': lambda: s().select(body.get('what')),
             '/api/save': lambda: _save(s(), body.get('kind')),
             '/api/restore': lambda: app.restore(body.get('folder')),
+            '/api/ligands/update': lambda: app.update_ligands(),
+            '/api/reopen': lambda: app.reopen(body.get('s')),
         }
         fn = routes.get(u.path)
         if fn is None:

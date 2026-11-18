@@ -79,4 +79,6 @@ summary{cursor:pointer;color:var(--dim)}
 #busy span{background:var(--card);border:1px solid var(--line);padding:10px 18px;border-radius:8px}
 body.drag main{outline:3px dashed var(--accent);outline-offset:-6px}
 [hidden]{display:none !important}
+#ligwarn{margin:4px 0 6px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--soft);font-size:13px;line-height:1.5}
+#ligwarn button{margin-left:6px}
 a.btn{text-decoration:none;display:inline-block}

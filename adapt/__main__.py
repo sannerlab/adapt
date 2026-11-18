@@ -25,6 +25,7 @@ def main(argv=None):
                '                                page, or 10 idle minutes, stops it\n'
                '  %(prog)s launcher --desktop      add ADapt to the applications menu and the\n'
                '                                desktop (Linux): one click starts it\n'
+               '  %(prog)s ligands --update        rebuild the ligand table from the RCSB\n'
                '  %(prog)s check                   "ready", or what %(app)s is missing\n'
                '  %(prog)s examples                where ADFR keeps its example PDB files\n'
                '  %(prog)s test -k parity          run part of the test suite\n\n'
@@ -64,6 +65,10 @@ def main(argv=None):
     la.add_argument('--remove', action='store_true', help='remove the menu entry and the icon')
     la.add_argument('--outdir', default=DEFAULT_OUTDIR,
                     help='output folder of the sessions it starts (default %(default)s)')
+    lg = sub.add_parser('ligands', help="the ligand table: which components each PDB entry holds")
+    lg.add_argument('--update', action='store_true',
+                    help='rebuild it from the RCSB PDB (a few minutes), for entries released '
+                         'since it was built; kept in ~/.adapt/ligands/')
     sub.add_parser('check', help='report what %s needs that is missing' % APP)
     sub.add_parser('examples', help="list the example PDB files that ship with ADFR")
     t = sub.add_parser('test', help='run the %s test suite (tests/run_tests.py)' % APP)
@@ -86,6 +91,16 @@ def main(argv=None):
         return 0
     if a.cmd == 'launcher':
         return launcher(a)
+    if a.cmd == 'ligands':
+        from . import ligtable
+        if a.update:
+            t = ligtable.build(progress=lambda m: print('  ' + m, flush=True))
+            print('rebuilt: %s' % t.path)
+        t = ligtable.current()
+        d = t.describe()
+        print('ligand table built %s: %d PDB entries, %d components (%s)'
+              % (d['date'], d['entries'], d['codes'], 'shipped with ADapt' if d['shipped'] else t.path))
+        return 0
     if a.cmd == 'check':
         miss = env.check()
         print('%s is ready' % APP if not miss else '%s cannot run: missing %s' % (APP, '; '.join(miss)))
