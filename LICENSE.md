@@ -1,21 +1,8 @@
 # Sannerlab MIT-like Source-Available License, version 1.0
 
-ADapt is distributed under this license, as published at
-https://sannerlab.github.io/software/license.html. Third-party components keep their own
-licenses (see THIRD_PARTY_NOTICES.md and Section 6).
+ADapt is distributed under the **Sannerlab MIT-like Source-Available License, version 1.0**, as published at https://sannerlab.github.io/software/license.html and reproduced below for ADapt. Section 3 lists what to cite for it.
 
-The Sanner Lab's software is distributed under the **Sannerlab MIT-like Source-Available License,
-version 1.0**, reproduced below. It applies to every tool on this site:
-[ADCP](https://sannerlab.github.io/software/adcp/), [ADFR](https://sannerlab.github.io/software/adfr/), [AGFR](https://sannerlab.github.io/software/agfr/),
-[AutoSite](https://sannerlab.github.io/software/autosite/), [ADapt](https://sannerlab.github.io/software/adapt/), [WEWoS](https://sannerlab.github.io/software/wewos/),
-[MGLTools](https://sannerlab.github.io/software/mgltools/) and [MSMS](https://sannerlab.github.io/software/msms/), with one exception for MSMS:
-
-> **MSMS: non-commercial use only**
->
-> For MSMS, this license applies to **non-commercial use only**. This covers the standalone MSMS
-> program and the MSLIB library that ADFRsuite and MGLTools use to compute molecular surfaces.
-> Commercial use of MSMS needs a separate commercial license: contact
-> [Dr. Michel Sanner](mailto:sanner@scripps.edu).
+Where a file of ADapt written in the Sanner lab (copyright Michel F. Sanner, TSRI or Scripps Research) states another license (the GNU LGPL, the BSD, MIT or Mozilla licenses, or the MGLTools software license agreement), this License replaces that statement for the copies distributed with this License. Third-party components keep their own licenses: see THIRD_PARTY_NOTICES.md and Section 6.
 
 Questions about the license: contact [Dr. Michel Sanner](mailto:sanner@scripps.edu).
 
@@ -118,32 +105,7 @@ The licensee will acknowledge the use of the Software that results in any extern
 work, including scientific papers, articles, films, videotapes, CD's, or DVD's, by citing the
 following reference(s) for the program used:
 
-- **ADCP:** Zhang, Y.; Sanner, M. F. AutoDock CrankPep: combining folding and docking to predict
-  protein–peptide complexes. *Bioinformatics* **2019**, 35 (24), 5121–5127.
-  [doi:10.1093/bioinformatics/btz459](https://doi.org/10.1093/bioinformatics/btz459); and
-  Zhang, Y.; Sanner, M. F. Docking flexible cyclic peptides with AutoDock CrankPep.
-  *J. Chem. Theory Comput.* **2019**, 15 (10), 5161–5168.
-  [doi:10.1021/acs.jctc.9b00557](https://doi.org/10.1021/acs.jctc.9b00557)
-- **ADFR:** Ravindranath, P. A.; Forli, S.; Goodsell, D. S.; Olson, A. J.; Sanner, M. F.
-  AutoDockFR: Advances in Protein-Ligand Docking with Explicitly Specified Binding Site
-  Flexibility. *PLoS Comput. Biol.* **2015**, 11 (12), e1004586.
-  [doi:10.1371/journal.pcbi.1004586](https://doi.org/10.1371/journal.pcbi.1004586)
-- **AGFR:** Zhang, Y.; Forli, S.; Omelchenko, A.; Sanner, M. F. AutoGridFR: Improvements on
-  AutoDock Affinity Maps and Associated Software Tools. *J. Comput. Chem.* **2019**, 40 (32),
-  2882–2886. [doi:10.1002/jcc.26054](https://doi.org/10.1002/jcc.26054)
-- **AutoSite:** Ravindranath, P. A.; Sanner, M. F. AutoSite: an automated approach for
-  pseudo-ligands prediction, from ligand-binding sites identification to predicting key ligand
-  atoms. *Bioinformatics* **2016**, 32 (20), 3142–3149.
-  [doi:10.1093/bioinformatics/btw367](https://doi.org/10.1093/bioinformatics/btw367)
-- **MSMS:** Sanner, M. F.; Olson, A. J.; Spehner, J.-C. Reduced surface: an efficient way to
-  compute molecular surfaces. *Biopolymers* **1996**, 38 (3), 305–320.
-  [doi:10.1002/(SICI)1097-0282(199603)38:3<305::AID-BIP4>3.0.CO;2-Y](https://doi.org/c7jbnr)
-- **MGLTools:** Sanner, M. F. Python: a programming language for software integration and
-  development. *J. Mol. Graphics Mod.* **1999**, 17 (1), 57–61.
-  [PubMed 10660911](https://pubmed.ncbi.nlm.nih.gov/10660911/)
-- **WEWoS:** Sanner, M. F.; Stoffler, D.; Olson, A. J. ViPEr, a Visual Programming Environment
-  for Python. *Proceedings of the 10th International Python Conference*, **2002**.
-  [Paper](https://legacy.python.org/workshops/2002-02/papers/10/index.htm)
+- **ADapt:** Sojitra, K. A.; Haq, A.; Fernando, S.; Sanner, M. F. ADapt: AutoDock Analysis and Preparation Tool – preparing PDB entries for docking. Manuscript in preparation, 2026; the published reference will be listed at https://sannerlab.github.io/software/adapt/.
 
 ## 4. Prohibited Activities
 
