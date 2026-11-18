@@ -20,6 +20,27 @@ ADapt's web technology follows ADCP_docking (github.com/aadhilhaq/ADCP_docking):
 the word "adapt"); it is what the page, `--help`, the server's messages and the session records
 show. Identifiers are lower case: the Python package `adapt` and the command `bin/adapt`.
 
+## Install
+
+ADapt runs in the Python environment of ADCP 1.1 (`adcpsuite`), with ADFR 0.0.23 and MolKit2
+0.0.6, which carry the corrections ADapt relies on. On Linux:
+
+1. Install ADCP 1.1: <https://sannerlab.github.io/software/adcp/1.1/download.html>.
+2. Add ADFR 0.0.23 and MolKit2 0.0.6 from the Sanner lab's pip index (ADCP 1.1 keeps working with
+   them; use `--index-url`, not `--extra-index-url`, as some of the names belong to other projects
+   on PyPI):
+   ```bash
+   micromamba activate adcpsuite        # or: conda activate adcpsuite
+   python -m pip install --no-deps --index-url https://sannerlab.github.io/pip/py37/ adfr==0.0.23 molkit2==0.0.6
+   ```
+3. Get ADapt and check it:
+   ```bash
+   git clone https://github.com/sannerlab/adapt.git
+   adapt/bin/adapt check                # "ADapt is ready"
+   adapt/bin/adapt serve --open         # starts ADapt and opens it in your browser
+   adapt/bin/adapt launcher --desktop   # optional: an ADapt icon in the menu and on the desktop
+   ```
+
 ## Run
 
 ```bash
