@@ -31,7 +31,7 @@ ADapt runs in the Python environment of ADCP 1.1 (`adcpsuite`), with ADFR 0.0.23
    on PyPI):
    ```bash
    micromamba activate adcpsuite        # or: conda activate adcpsuite
-   python -m pip install --no-deps --index-url https://sannerlab.github.io/pip/py37/ adfr==0.0.23 molkit2==0.0.6
+   python -m pip install --no-deps --index-url https://sannerlab.github.io/pip/py37/ adfr==0.0.23.post1 molkit2==0.0.6.post1
    ```
 3. Get ADapt and check it:
    ```bash
