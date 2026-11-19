@@ -122,8 +122,8 @@ def test_10hy_ligand_is_found_and_sessions_keep_their_table():
         return
     data = open(path, 'rb').read()
     name = os.path.basename(path)
-    new = Session('lig10hy_new0001', data, name, outdir('lig_sessions'), env.provenance())
-    old = Session('lig10hy_old0001', data, name, outdir('lig_sessions'), env.provenance(),
+    new = Session('new10hy_lig0001', data, name, outdir('lig_sessions'), env.provenance())
+    old = Session('old10hy_lig0001', data, name, outdir('lig_sessions'), env.provenance(),
                   ligand_table=ligtable.ADFR_2020)
     cn, co = _categories(new), _categories(old)
     check(any('L01' in r for r in cn.get('ligands', [])), cn)

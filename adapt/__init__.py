@@ -11,7 +11,7 @@ from APP / APP_LONG below. Identifiers are the lower-case `adapt`: this
 package and the command bin/adapt (both `agfr_web` / `bin/agfr-web` before
 2026-09-29).
 """
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 __author__ = 'Michel Sanner, PhD'
 __copyright__ = 'Copyright (c) 2026 Michel Sanner, PhD'
 
