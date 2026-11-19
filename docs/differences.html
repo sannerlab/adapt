@@ -38,7 +38,7 @@ every one.</p>
 <p>ADapt is the PDB analyzer of AutoGridFR's graphical interface (AGFRgui) rebuilt as a web page.
 It does not reimplement the chemistry. The assemblies, categories, defaults, side-chain
 completion, mutations, protonation, charges and PDBQT writing are all ADFR's own code, run from
-the ADCP distribution (<code>adfr</code> 0.0.23 or later, with <code>MolKit2</code> 0.0.6; ADapt
+the ADCP distribution (<code>adfr</code> 0.0.24 or later, with <code>MolKit2</code> 0.0.6; ADapt
 refuses to start with an older ADFR). Only the Qt interface was rewritten. For the same choices,
 the receptor ADapt writes is byte-identical to the one ADFR's command line writes; ADapt's test
 suite checks this on ADFR's own test files. Every choice ADapt offers for the receptor except
@@ -56,6 +56,15 @@ without ADapt from the choices <code>session.json</code> records:</p>
 <tr><td>Ion charge</td><td><code>--ionCharges</code></td><td><code>--ionCharges "A:ZN:401::1.5"</code></td></tr>
 <tr><td>Ion replacement</td><td><code>--substitute</code></td><td><code>--substitute "A:CU:100::ZN"</code></td></tr>
 </table>
+
+<h2>Corrected in ADFR 0.0.24</h2>
+<p>Receptor and ligand PDBQT files use AutoDock's columns: the partial charge as <code>%6.3f</code>
+in columns 71&ndash;76, columns 67&ndash;70 blank. Up to 0.0.23 the charge was written as
+<code>%5.2f</code> in columns 71&ndash;75, after the segment name, and AutoDock Vina 1.2 refused
+every file (<code>Charge "A-0.13 " is not valid</code>): Vina reads the charge from columns
+69&ndash;76 and refuses a trailing blank. The files are otherwise unchanged; charges now have three
+decimals instead of two. ADapt's <code>tests/test_vina_columns.py</code> applies Vina's rules to
+the files it writes.</p>
 
 <h2>Corrected in ADFR 0.0.23</h2>
 <p>These were defects of ADFR 0.0.22, found while building ADapt and corrected in ADFR itself, so

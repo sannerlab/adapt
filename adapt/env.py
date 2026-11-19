@@ -44,8 +44,13 @@ def check():
         if not (hasattr(recFromPDB.PDBProfiler, 'chooseAltloc')
                 and hasattr(recFromPDB.PDBProfiler, 'completeSidechain')
                 and hasattr(recFromPDB, 'ccdIonCharge')):
-            missing.append('ADFR 0.0.23 or later (this one, %s, predates the fixes '
+            missing.append('ADFR 0.0.24 or later (this one, %s, predates the fixes '
                            'ADapt relies on)' % _dist(os.path.dirname(os.path.abspath(
+                               ADFR.__file__)), 'adfr'))
+        elif '%6.3f %-2s' not in getattr(ADFR, 'PDBQT_FMT', ''):
+            # up to 0.0.23 the charge was %5.2f in columns 71-75, after the segment name
+            missing.append('ADFR 0.0.24 or later (this one, %s, writes PDBQT charges '
+                           'that Vina cannot read)' % _dist(os.path.dirname(os.path.abspath(
                                ADFR.__file__)), 'adfr'))
     reduce_bin = os.path.join(os.environ['ADS_ROOT'], 'bin', 'reduce')
     if not os.access(reduce_bin, os.X_OK):

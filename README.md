@@ -22,16 +22,16 @@ show. Identifiers are lower case: the Python package `adapt` and the command `bi
 
 ## Install
 
-ADapt runs in the Python environment of ADCP 1.1 (`adcpsuite`), with ADFR 0.0.23 and MolKit2
+ADapt runs in the Python environment of ADCP 1.1 (`adcpsuite`), with ADFR 0.0.24 and MolKit2
 0.0.6, which carry the corrections ADapt relies on. On Linux:
 
 1. Install ADCP 1.1: <https://sannerlab.github.io/software/adcp/1.1/download.html>.
-2. Add ADFR 0.0.23 and MolKit2 0.0.6 from the Sanner lab's pip index (ADCP 1.1 keeps working with
+2. Add ADFR 0.0.24 and MolKit2 0.0.6 from the Sanner lab's pip index (ADCP 1.1 keeps working with
    them; use `--index-url`, not `--extra-index-url`, as some of the names belong to other projects
    on PyPI):
    ```bash
    micromamba activate adcpsuite        # or: conda activate adcpsuite
-   python -m pip install --no-deps --index-url https://sannerlab.github.io/pip/py37/ adfr==0.0.23.post1 molkit2==0.0.6.post1
+   python -m pip install --no-deps --index-url https://sannerlab.github.io/pip/py37/ adfr==0.0.24 molkit2==0.0.6.post1
    ```
 3. Get ADapt and check it:
    ```bash
@@ -189,6 +189,9 @@ For a program that starts ADapt (as ADCP_docking does); details in `docs/start.h
 
 `docs/differences.html` has the full list. In short:
 
+- **Corrected in ADFR 0.0.24**: receptor and ligand PDBQT files use AutoDock's columns (charge `%6.3f`
+  in columns 71–76, columns 67–70 blank). Up to 0.0.23 the charge was `%5.2f` in columns 71–75 after
+  the segment name, and AutoDock Vina 1.2 refused every file (`Charge "A-0.13 " is not valid`).
 - **Corrected in ADFR 0.0.23** (found while building ADapt, so `agfr` and AGFRgui benefit too, each
   with a test in ADFR's `tests/` that fails on 0.0.22): deterministic default alternate location;
   ion charges from the Chemical Component Dictionary (FE +3, FE2 +2, MN +2, BR/CL/IOD −1; FE2 and
@@ -224,7 +227,7 @@ are ADFR's behaviour, shared by `agfr` and AGFRgui.
 - **The ligand table.** Which hetero groups are *ligands* comes from a table of the chemical components of every PDB entry, built from the RCSB PDB Data API and shipped in `adapt/data/ligands.tsv.gz` (built 2026-11-17: 211,559 entries, 50,674 components; ADFR's own table, from Ligand Expo, dates from March 2020). An entry released later is not in it: the page says so and offers to rebuild the table (a few minutes), as `bin/adapt ligands --update` does; rebuilt tables are kept in `~/.adapt/ligands/`. A session records the table it was made with and is restored with it (sessions made before ADapt had its own table, with ADFR's). A residue the mmCIF conversion renamed (A1C5F to L01 in 10HY) is looked up under its own code.
 - **Copies defined only by MTRIX records are not built**; assemblies come from REMARK 350.
 - **The `agfr` / `agfrgui` launchers split option values containing spaces** (unquoted `$@`). Call `python -m ADFR.bin.runAGFR` directly for those. The correction belongs to the ADFR packaging, for the next ADCP release.
-- **(ADapt) Needs the ADCP distribution's `adcpsuite` environment** (Python 3.7) with ADFR 0.0.23 or later.
+- **(ADapt) Needs the ADCP distribution's `adcpsuite` environment** (Python 3.7) with ADFR 0.0.24 or later.
 
 ## Documentation
 
